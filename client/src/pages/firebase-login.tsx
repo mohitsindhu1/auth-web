@@ -38,13 +38,15 @@ export default function FirebaseLogin() {
         description: "Authentication failed",
         variant: "destructive"
       });
+      setLoading(false);
     });
 
     // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
+      if (user && !loading) {
         setUser(user);
-      } else {
+        authenticateWithBackend(user);
+      } else if (!user) {
         setUser(null);
       }
     });
@@ -74,7 +76,7 @@ export default function FirebaseLogin() {
       if (result.success) {
         toast({
           title: "Success",
-          description: "Account created/logged in successfully!",
+          description: "Login successful! Redirecting to dashboard...",
           variant: "default"
         });
         
@@ -83,8 +85,10 @@ export default function FirebaseLogin() {
         localStorage.setItem('account_email', firebaseUser.email);
         localStorage.setItem('firebase_uid', firebaseUser.uid);
         
-        // Redirect to dashboard
-        setLocation('/dashboard');
+        // Wait a moment for the toast to show, then redirect
+        setTimeout(() => {
+          setLocation('/dashboard');
+        }, 1500);
       } else {
         toast({
           title: "Error",
@@ -99,6 +103,8 @@ export default function FirebaseLogin() {
         description: "Failed to authenticate with backend",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
   };
 

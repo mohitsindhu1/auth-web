@@ -71,7 +71,7 @@ export default function Documentation() {
               Documentation
             </h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Complete integration guide for Phantom Auth API. Learn how to implement secure authentication in your applications step by step.
+              Complete integration guide for Phantom Auth API. Learn how to implement secure authentication in your C# WinForms applications with HWID locking, version control, and blacklist management.
             </p>
           </div>
         </div>
