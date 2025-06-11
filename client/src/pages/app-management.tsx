@@ -86,9 +86,24 @@ export default function AppManagement() {
   const [editAppData, setEditAppData] = useState<Partial<Application>>({});
 
   // Fetch application details
-  const { data: application, isLoading: isLoadingApp } = useQuery<Application>({
+  const { data: application, isLoading: isLoadingApp, error: appError } = useQuery<Application>({
     queryKey: ["/api/applications", appId],
+    queryFn: async () => {
+      if (!appId) throw new Error("No application ID");
+      const response = await fetch(`/api/applications/${appId}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch application: ${response.status}`);
+      }
+      return response.json();
+    },
     enabled: !!appId,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   // Fetch application users with proper error handling
@@ -119,11 +134,38 @@ export default function AppManagement() {
   });
 
   // Fetch real-time application statistics
-  const { data: appStats, isLoading: isLoadingStats } = useQuery<AppStats>({
+  const { data: appStats, isLoading: isLoadingStats, error: statsError } = useQuery<AppStats>({
     queryKey: ["/api/applications", appId, "stats"],
-    enabled: !!appId,
+    queryFn: async () => {
+      if (!appId) throw new Error("No application ID");
+      const response = await fetch(`/api/applications/${appId}/stats`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch stats: ${response.status}`);
+      }
+      return response.json();
+    },
+    enabled: !!appId && !!application,
     refetchInterval: 5000, // Refresh every 5 seconds for real-time data
+    staleTime: 0,
   });
+
+  // Debug logging
+  useEffect(() => {
+    console.log("App management debug:", {
+      appId,
+      application,
+      appStats,
+      isLoadingApp,
+      isLoadingStats,
+      appError,
+      statsError
+    });
+  }, [appId, application, appStats, isLoadingApp, isLoadingStats, appError, statsError]);
 
   // Update edit form when application data loads and reset form when dialog opens
   useEffect(() => {
@@ -354,13 +396,16 @@ export default function AppManagement() {
     );
   }
 
-  if (!application) {
+  if (!application && !isLoadingApp) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Application Not Found</h1>
+            {appError && (
+              <p className="text-red-500 mb-4">Error: {appError.message}</p>
+            )}
             <Button onClick={() => setLocation("/dashboard")}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboard
@@ -490,35 +535,35 @@ export default function AppManagement() {
                 <CardContent className="space-y-2">
                   <div>
                     <Label className="text-sm font-medium">Name</Label>
-                    <p className="text-sm text-muted-foreground">{application.name || "N/A"}</p>
+                    <p className="text-sm text-muted-foreground">{application?.name || "Loading..."}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Version</Label>
-                    <p className="text-sm text-muted-foreground">{application.version || "N/A"}</p>
+                    <p className="text-sm text-muted-foreground">{application?.version || "Loading..."}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Description</Label>
-                    <p className="text-sm text-muted-foreground">{application.description || "No description"}</p>
+                    <p className="text-sm text-muted-foreground">{application?.description || "No description"}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Created</Label>
                     <p className="text-sm text-muted-foreground">
-                      {application.createdAt ? new Date(application.createdAt).toLocaleDateString() + ' ' + new Date(application.createdAt).toLocaleTimeString() : "N/A"}
+                      {application?.createdAt ? new Date(application.createdAt).toLocaleDateString() + ' ' + new Date(application.createdAt).toLocaleTimeString() : "Loading..."}
                     </p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Last Updated</Label>
                     <p className="text-sm text-muted-foreground">
-                      {application.updatedAt ? new Date(application.updatedAt).toLocaleDateString() + ' ' + new Date(application.updatedAt).toLocaleTimeString() : "N/A"}
+                      {application?.updatedAt ? new Date(application.updatedAt).toLocaleDateString() + ' ' + new Date(application.updatedAt).toLocaleTimeString() : "Loading..."}
                     </p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">API Key</Label>
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
-                        {application.apiKey ? `${application.apiKey.substring(0, 8)}...` : "N/A"}
+                        {application?.apiKey ? `${application.apiKey.substring(0, 8)}...` : "Loading..."}
                       </span>
-                      {application.apiKey && (
+                      {application?.apiKey && (
                         <Button
                           variant="ghost"
                           size="sm"
