@@ -49,14 +49,21 @@ export default function Header() {
             </div>
           </nav>
           <div className="flex items-center space-x-4">
-            <Link href="/admin">
+            <Link href="/register">
               <Button variant="outline" size="sm">
-                Admin
+                Create User
               </Button>
             </Link>
-            <Button size="sm" className="bg-primary text-white hover:bg-primary/90">
-              Get Started
-            </Button>
+            <Link href="/test-login">
+              <Button variant="outline" size="sm">
+                Test Login
+              </Button>
+            </Link>
+            <Link href="/admin">
+              <Button size="sm" className="bg-primary text-white hover:bg-primary/90">
+                Admin Panel
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

@@ -101,8 +101,8 @@ using Newtonsoft.Json;
 public class AuthService
 {
     private static readonly HttpClient client = new HttpClient();
-    private const string API_BASE = "https://your-api-domain.com/api";
-    private const string API_KEY = "your_api_key_here";
+    private const string API_BASE = "https://24dff18d-18d0-4b5a-b988-058e9bf61703-00-3eqcnf9gyu1ms.picard.replit.dev/api";
+    private const string API_KEY = "test-api-key-123";
 
     public async Task<bool> LoginUser(string username, string password)
     {
@@ -126,7 +126,35 @@ public class AuthService
         }
         catch (Exception ex)
         {
-            // Handle error
+            MessageBox.Show($"Error: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<bool> RegisterUser(string username, string password, string email)
+    {
+        var registerData = new
+        {
+            username = username,
+            password = password,
+            email = email,
+            api_key = API_KEY
+        };
+
+        var json = JsonConvert.SerializeObject(registerData);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        try
+        {
+            var response = await client.PostAsync($"{API_BASE}/auth/register", content);
+            var responseString = await response.Content.ReadAsStringAsync();
+            var result = JsonConvert.DeserializeObject<AuthResponse>(responseString);
+            
+            return result.Success;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error: {ex.Message}");
             return false;
         }
     }
@@ -134,9 +162,16 @@ public class AuthService
 
 public class AuthResponse
 {
+    [JsonProperty("success")]
     public bool Success { get; set; }
+    
+    [JsonProperty("message")]
     public string Message { get; set; }
+    
+    [JsonProperty("user_id")]
     public string UserId { get; set; }
+    
+    [JsonProperty("session_token")]
     public string SessionToken { get; set; }
 }
 
@@ -150,10 +185,32 @@ private async void btnLogin_Click(object sender, EventArgs e)
     {
         MessageBox.Show("Login successful!");
         // Proceed to next form/step
+        this.Hide();
+        var dashboardForm = new DashboardForm();
+        dashboardForm.Show();
     }
     else
     {
         MessageBox.Show("Invalid credentials!");
+    }
+}
+
+private async void btnRegister_Click(object sender, EventArgs e)
+{
+    var authService = new AuthService();
+    bool registerSuccess = await authService.RegisterUser(
+        txtUsername.Text, 
+        txtPassword.Text, 
+        txtEmail.Text
+    );
+    
+    if (registerSuccess)
+    {
+        MessageBox.Show("User registered successfully!");
+    }
+    else
+    {
+        MessageBox.Show("Registration failed!");
     }
 }`}
             </pre>
