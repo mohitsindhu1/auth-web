@@ -11,6 +11,7 @@ import AppManagement from "@/pages/app-management";
 import Documentation from "@/pages/documentation";
 import Webhooks from "@/pages/webhooks";
 import Blacklist from "@/pages/blacklist";
+import ActivityLogs from "@/pages/activity-logs";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -39,6 +40,7 @@ function Router() {
           <Route path="/app/:id" component={AppManagement} />
           <Route path="/webhooks" component={Webhooks} />
           <Route path="/blacklist" component={Blacklist} />
+          <Route path="/activity-logs" component={ActivityLogs} />
           <Route path="/docs" component={Documentation} />
         </>
       )}

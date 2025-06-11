@@ -889,6 +889,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Activity logs routes
+  app.get('/api/activity-logs', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const applicationId = req.query.applicationId;
+      
+      if (applicationId) {
+        // Get logs for specific application
+        const application = await storage.getApplication(parseInt(applicationId));
+        if (!application || application.userId !== userId) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+        
+        const logs = await storage.getActivityLogs(parseInt(applicationId));
+        res.json(logs);
+      } else {
+        // Get logs for all user's applications
+        const applications = await storage.getAllApplications(userId);
+        const allLogs = [];
+        
+        for (const app of applications) {
+          const logs = await storage.getActivityLogs(app.id);
+          allLogs.push(...logs);
+        }
+        
+        // Sort by creation date (newest first)
+        allLogs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
+        res.json(allLogs);
+      }
+    } catch (error) {
+      console.error("Error fetching activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch activity logs" });
+    }
+  });
+
+  // Get activity logs for specific user
+  app.get('/api/activity-logs/user/:userId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const appUserId = parseInt(req.params.userId);
+      
+      // Get the app user and verify ownership
+      const appUser = await storage.getAppUser(appUserId);
+      if (!appUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const application = await storage.getApplication(appUser.applicationId);
+      if (!application || application.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const logs = await storage.getUserActivityLogs(appUserId);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching user activity logs:", error);
+      res.status(500).json({ message: "Failed to fetch user activity logs" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
