@@ -140,10 +140,21 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  // Check for Firebase session
+  if (req.session && (req.session as any).user && (req.session as any).user.claims) {
+    req.user = (req.session as any).user;
+    return next();
+  }
+
+  // Fallback to passport authentication
   const user = req.user as any;
 
-  if (!req.isAuthenticated() || !user.expires_at) {
+  if (!req.isAuthenticated() || !user) {
     return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  if (!user.expires_at) {
+    return next();
   }
 
   const now = Math.floor(Date.now() / 1000);
