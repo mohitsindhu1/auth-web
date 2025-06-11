@@ -634,11 +634,11 @@ else:
               {/* C# Example */}
               <TabsContent value="csharp">
                 <div className="space-y-4">
-                  <h4 className="text-lg font-semibold">C# Integration</h4>
+                  <h4 className="text-lg font-semibold">C# WinForms Integration with HWID & Version Control</h4>
                   
-                  <div className="bg-muted/50 rounded-lg p-4">
+                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium">C# Class Example</span>
+                      <span className="text-sm font-medium">Complete PhantomAuth Class with HWID Support</span>
                       <Button 
                         variant="ghost" 
                         size="sm"
@@ -646,6 +646,8 @@ else:
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using System.Management;
+using System.Security.Cryptography;
 using Newtonsoft.Json;
 
 public class PhantomAuth
@@ -653,18 +655,68 @@ public class PhantomAuth
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
     private readonly string _baseUrl;
+    private readonly string _appVersion;
 
-    public PhantomAuth(string apiKey, string baseUrl = "${window.location.origin}/api/v1")
+    public PhantomAuth(string apiKey, string appVersion = "1.0.0", string baseUrl = "${window.location.origin}/api/v1")
     {
         _apiKey = apiKey;
         _baseUrl = baseUrl;
+        _appVersion = appVersion;
         _httpClient = new HttpClient();
         _httpClient.DefaultRequestHeaders.Add("X-API-Key", apiKey);
     }
 
-    public async Task<AuthResponse> LoginAsync(string username, string password)
+    // Generate Hardware ID
+    public static string GetHardwareId()
     {
-        var data = new { username, password };
+        try
+        {
+            string hwid = "";
+            
+            // Get CPU ID
+            ManagementObjectSearcher mos = new ManagementObjectSearcher("SELECT ProcessorId FROM Win32_Processor");
+            foreach (ManagementObject mo in mos.Get())
+            {
+                hwid += mo["ProcessorId"].ToString();
+            }
+            
+            // Get Motherboard Serial
+            mos = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard");
+            foreach (ManagementObject mo in mos.Get())
+            {
+                hwid += mo["SerialNumber"].ToString();
+            }
+            
+            // Get BIOS Serial
+            mos = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BIOS");
+            foreach (ManagementObject mo in mos.Get())
+            {
+                hwid += mo["SerialNumber"].ToString();
+            }
+            
+            // Create hash of combined hardware info
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(hwid));
+                return Convert.ToBase64String(hash).Substring(0, 32);
+            }
+        }
+        catch
+        {
+            return "HWID-FALLBACK-" + Environment.MachineName;
+        }
+    }
+
+    public async Task<AuthResponse> LoginAsync(string username, string password, bool includeHwid = true)
+    {
+        var data = new { 
+            username, 
+            password, 
+            api_key = _apiKey,
+            version = _appVersion,
+            hwid = includeHwid ? GetHardwareId() : null
+        };
+        
         var json = JsonConvert.SerializeObject(data);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -676,7 +728,14 @@ public class PhantomAuth
 
     public async Task<AuthResponse> RegisterAsync(string username, string email, string password, DateTime? expiresAt = null)
     {
-        var data = new { username, email, password, expiresAt };
+        var data = new { 
+            username, 
+            email, 
+            password, 
+            expiresAt,
+            hwid = GetHardwareId()
+        };
+        
         var json = JsonConvert.SerializeObject(data);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -686,7 +745,7 @@ public class PhantomAuth
         return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
     }
 
-    public async Task<AuthResponse> VerifyAsync(int userId)
+    public async Task<AuthResponse> VerifySessionAsync(int userId)
     {
         var data = new { user_id = userId };
         var json = JsonConvert.SerializeObject(data);
@@ -701,26 +760,26 @@ public class PhantomAuth
 
 public class AuthResponse
 {
+    [JsonProperty("success")]
     public bool Success { get; set; }
+    
+    [JsonProperty("message")]
     public string Message { get; set; }
+    
+    [JsonProperty("user_id")]
     public int? UserId { get; set; }
+    
+    [JsonProperty("username")]
     public string Username { get; set; }
+    
+    [JsonProperty("email")]
     public string Email { get; set; }
+    
+    [JsonProperty("expires_at")]
     public DateTime? ExpiresAt { get; set; }
-}
-
-// Usage example
-var auth = new PhantomAuth("your_api_key_here");
-
-// Login example
-var loginResult = await auth.LoginAsync("johndoe", "password123");
-if (loginResult.Success)
-{
-    Console.WriteLine($"Login successful! User ID: {loginResult.UserId}");
-}
-else
-{
-    Console.WriteLine($"Login failed: {loginResult.Message}");
+    
+    [JsonProperty("hwid_locked")]
+    public bool? HwidLocked { get; set; }
 }`)}
                       >
                         <Copy className="h-4 w-4" />
@@ -731,6 +790,8 @@ else
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using System.Management;
+using System.Security.Cryptography;
 using Newtonsoft.Json;
 
 public class PhantomAuth
@@ -738,18 +799,68 @@ public class PhantomAuth
     private readonly HttpClient _httpClient;
     private readonly string _apiKey;
     private readonly string _baseUrl;
+    private readonly string _appVersion;
 
-    public PhantomAuth(string apiKey, string baseUrl = "${window.location.origin}/api/v1")
+    public PhantomAuth(string apiKey, string appVersion = "1.0.0", string baseUrl = "${window.location.origin}/api/v1")
     {
         _apiKey = apiKey;
         _baseUrl = baseUrl;
+        _appVersion = appVersion;
         _httpClient = new HttpClient();
         _httpClient.DefaultRequestHeaders.Add("X-API-Key", apiKey);
     }
 
-    public async Task<AuthResponse> LoginAsync(string username, string password)
+    // Generate Hardware ID
+    public static string GetHardwareId()
     {
-        var data = new { username, password };
+        try
+        {
+            string hwid = "";
+            
+            // Get CPU ID
+            ManagementObjectSearcher mos = new ManagementObjectSearcher("SELECT ProcessorId FROM Win32_Processor");
+            foreach (ManagementObject mo in mos.Get())
+            {
+                hwid += mo["ProcessorId"].ToString();
+            }
+            
+            // Get Motherboard Serial
+            mos = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard");
+            foreach (ManagementObject mo in mos.Get())
+            {
+                hwid += mo["SerialNumber"].ToString();
+            }
+            
+            // Get BIOS Serial
+            mos = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BIOS");
+            foreach (ManagementObject mo in mos.Get())
+            {
+                hwid += mo["SerialNumber"].ToString();
+            }
+            
+            // Create hash of combined hardware info
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(hwid));
+                return Convert.ToBase64String(hash).Substring(0, 32);
+            }
+        }
+        catch
+        {
+            return "HWID-FALLBACK-" + Environment.MachineName;
+        }
+    }
+
+    public async Task<AuthResponse> LoginAsync(string username, string password, bool includeHwid = true)
+    {
+        var data = new { 
+            username, 
+            password, 
+            api_key = _apiKey,
+            version = _appVersion,
+            hwid = includeHwid ? GetHardwareId() : null
+        };
+        
         var json = JsonConvert.SerializeObject(data);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -761,7 +872,14 @@ public class PhantomAuth
 
     public async Task<AuthResponse> RegisterAsync(string username, string email, string password, DateTime? expiresAt = null)
     {
-        var data = new { username, email, password, expiresAt };
+        var data = new { 
+            username, 
+            email, 
+            password, 
+            expiresAt,
+            hwid = GetHardwareId()
+        };
+        
         var json = JsonConvert.SerializeObject(data);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -771,7 +889,7 @@ public class PhantomAuth
         return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
     }
 
-    public async Task<AuthResponse> VerifyAsync(int userId)
+    public async Task<AuthResponse> VerifySessionAsync(int userId)
     {
         var data = new { user_id = userId };
         var json = JsonConvert.SerializeObject(data);
@@ -786,27 +904,303 @@ public class PhantomAuth
 
 public class AuthResponse
 {
+    [JsonProperty("success")]
     public bool Success { get; set; }
+    
+    [JsonProperty("message")]
     public string Message { get; set; }
+    
+    [JsonProperty("user_id")]
     public int? UserId { get; set; }
+    
+    [JsonProperty("username")]
     public string Username { get; set; }
+    
+    [JsonProperty("email")]
     public string Email { get; set; }
+    
+    [JsonProperty("expires_at")]
     public DateTime? ExpiresAt { get; set; }
-}
-
-// Usage example
-var auth = new PhantomAuth("your_api_key_here");
-
-// Login example
-var loginResult = await auth.LoginAsync("johndoe", "password123");
-if (loginResult.Success)
-{
-    Console.WriteLine($"Login successful! User ID: {loginResult.UserId}");
-}
-else
-{
-    Console.WriteLine($"Login failed: {loginResult.Message}");
+    
+    [JsonProperty("hwid_locked")]
+    public bool? HwidLocked { get; set; }
 }`}
+                    </pre>
+                  </div>
+
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">WinForms Login Button Implementation</span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => copyToClipboard(`// In your WinForms application
+public partial class LoginForm : Form
+{
+    private PhantomAuth _auth;
+    private const string API_KEY = "your_api_key_here";
+    private const string APP_VERSION = "1.0.0";
+
+    public LoginForm()
+    {
+        InitializeComponent();
+        _auth = new PhantomAuth(API_KEY, APP_VERSION);
+    }
+
+    private async void btnLogin_Click(object sender, EventArgs e)
+    {
+        try
+        {
+            // Disable login button during request
+            btnLogin.Enabled = false;
+            btnLogin.Text = "Logging in...";
+
+            string username = txtUsername.Text.Trim();
+            string password = txtPassword.Text;
+
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+            {
+                MessageBox.Show("Please enter both username and password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Attempt login with HWID and version checking
+            AuthResponse result = await _auth.LoginAsync(username, password, true);
+
+            if (result.Success)
+            {
+                // Store user session data
+                Properties.Settings.Default.UserId = result.UserId ?? 0;
+                Properties.Settings.Default.Username = result.Username;
+                Properties.Settings.Default.Email = result.Email;
+                Properties.Settings.Default.Save();
+
+                MessageBox.Show(result.Message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                
+                // Open main application form
+                MainForm mainForm = new MainForm();
+                mainForm.Show();
+                this.Hide();
+            }
+            else
+            {
+                // Handle specific error messages
+                string errorTitle = "Login Failed";
+                MessageBoxIcon icon = MessageBoxIcon.Error;
+
+                if (result.Message.Contains("version"))
+                {
+                    errorTitle = "Update Required";
+                    icon = MessageBoxIcon.Warning;
+                }
+                else if (result.Message.Contains("hardware") || result.Message.Contains("HWID"))
+                {
+                    errorTitle = "Hardware Mismatch";
+                    icon = MessageBoxIcon.Warning;
+                }
+                else if (result.Message.Contains("expired"))
+                {
+                    errorTitle = "Account Expired";
+                    icon = MessageBoxIcon.Warning;
+                }
+                else if (result.Message.Contains("disabled") || result.Message.Contains("paused"))
+                {
+                    errorTitle = "Account Disabled";
+                    icon = MessageBoxIcon.Warning;
+                }
+
+                MessageBox.Show(result.Message, errorTitle, MessageBoxButtons.OK, icon);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            MessageBox.Show("Network error: Unable to connect to authentication server.\\n\\nDetails: " + ex.Message, 
+                          "Connection Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("An unexpected error occurred:\\n\\n" + ex.Message, 
+                          "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            // Re-enable login button
+            btnLogin.Enabled = true;
+            btnLogin.Text = "Login";
+        }
+    }
+
+    // Session verification on application startup
+    private async void LoginForm_Load(object sender, EventArgs e)
+    {
+        // Check if user has a saved session
+        int savedUserId = Properties.Settings.Default.UserId;
+        if (savedUserId > 0)
+        {
+            try
+            {
+                AuthResponse verifyResult = await _auth.VerifySessionAsync(savedUserId);
+                if (verifyResult.Success)
+                {
+                    // Auto-login successful
+                    MainForm mainForm = new MainForm();
+                    mainForm.Show();
+                    this.Hide();
+                    return;
+                }
+            }
+            catch
+            {
+                // Clear invalid session
+                Properties.Settings.Default.UserId = 0;
+                Properties.Settings.Default.Save();
+            }
+        }
+        
+        // Show current HWID for debugging (optional)
+        lblHwid.Text = "HWID: " + PhantomAuth.GetHardwareId();
+    }
+}
+
+// Required NuGet packages:
+// Install-Package Newtonsoft.Json
+// Install-Package System.Management`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <pre className="text-sm overflow-x-auto">
+{`// In your WinForms application
+public partial class LoginForm : Form
+{
+    private PhantomAuth _auth;
+    private const string API_KEY = "your_api_key_here";
+    private const string APP_VERSION = "1.0.0";
+
+    public LoginForm()
+    {
+        InitializeComponent();
+        _auth = new PhantomAuth(API_KEY, APP_VERSION);
+    }
+
+    private async void btnLogin_Click(object sender, EventArgs e)
+    {
+        try
+        {
+            // Disable login button during request
+            btnLogin.Enabled = false;
+            btnLogin.Text = "Logging in...";
+
+            string username = txtUsername.Text.Trim();
+            string password = txtPassword.Text;
+
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+            {
+                MessageBox.Show("Please enter both username and password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Attempt login with HWID and version checking
+            AuthResponse result = await _auth.LoginAsync(username, password, true);
+
+            if (result.Success)
+            {
+                // Store user session data
+                Properties.Settings.Default.UserId = result.UserId ?? 0;
+                Properties.Settings.Default.Username = result.Username;
+                Properties.Settings.Default.Email = result.Email;
+                Properties.Settings.Default.Save();
+
+                MessageBox.Show(result.Message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                
+                // Open main application form
+                MainForm mainForm = new MainForm();
+                mainForm.Show();
+                this.Hide();
+            }
+            else
+            {
+                // Handle specific error messages
+                string errorTitle = "Login Failed";
+                MessageBoxIcon icon = MessageBoxIcon.Error;
+
+                if (result.Message.Contains("version"))
+                {
+                    errorTitle = "Update Required";
+                    icon = MessageBoxIcon.Warning;
+                }
+                else if (result.Message.Contains("hardware") || result.Message.Contains("HWID"))
+                {
+                    errorTitle = "Hardware Mismatch";
+                    icon = MessageBoxIcon.Warning;
+                }
+                else if (result.Message.Contains("expired"))
+                {
+                    errorTitle = "Account Expired";
+                    icon = MessageBoxIcon.Warning;
+                }
+                else if (result.Message.Contains("disabled") || result.Message.Contains("paused"))
+                {
+                    errorTitle = "Account Disabled";
+                    icon = MessageBoxIcon.Warning;
+                }
+
+                MessageBox.Show(result.Message, errorTitle, MessageBoxButtons.OK, icon);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            MessageBox.Show("Network error: Unable to connect to authentication server.\\n\\nDetails: " + ex.Message, 
+                          "Connection Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("An unexpected error occurred:\\n\\n" + ex.Message, 
+                          "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            // Re-enable login button
+            btnLogin.Enabled = true;
+            btnLogin.Text = "Login";
+        }
+    }
+
+    // Session verification on application startup
+    private async void LoginForm_Load(object sender, EventArgs e)
+    {
+        // Check if user has a saved session
+        int savedUserId = Properties.Settings.Default.UserId;
+        if (savedUserId > 0)
+        {
+            try
+            {
+                AuthResponse verifyResult = await _auth.VerifySessionAsync(savedUserId);
+                if (verifyResult.Success)
+                {
+                    // Auto-login successful
+                    MainForm mainForm = new MainForm();
+                    mainForm.Show();
+                    this.Hide();
+                    return;
+                }
+            }
+            catch
+            {
+                // Clear invalid session
+                Properties.Settings.Default.UserId = 0;
+                Properties.Settings.Default.Save();
+            }
+        }
+        
+        // Show current HWID for debugging (optional)
+        lblHwid.Text = "HWID: " + PhantomAuth.GetHardwareId();
+    }
+}
+
+// Required NuGet packages:
+// Install-Package Newtonsoft.Json
+// Install-Package System.Management`}
                     </pre>
                   </div>
                 </div>
@@ -1002,6 +1396,472 @@ if ($result['success']) {
           </CardContent>
         </Card>
 
+        {/* Advanced Features */}
+        <Card className="phantom-card mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Shield className="h-5 w-5 phantom-text mr-2" />
+              Advanced Features
+            </CardTitle>
+            <CardDescription>
+              HWID locking, version control, blacklist management, and activity logging
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="hwid" className="space-y-6">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="hwid">HWID Locking</TabsTrigger>
+                <TabsTrigger value="version">Version Control</TabsTrigger>
+                <TabsTrigger value="blacklist">Blacklist System</TabsTrigger>
+                <TabsTrigger value="activity">Activity Logs</TabsTrigger>
+              </TabsList>
+
+              {/* HWID Locking */}
+              <TabsContent value="hwid">
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold">Hardware ID (HWID) Locking</h4>
+                  <p className="text-muted-foreground mb-4">
+                    Prevent account sharing by locking user accounts to specific hardware configurations.
+                  </p>
+                  
+                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Enable HWID Locking in Dashboard</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      1. Go to your application settings in the dashboard<br/>
+                      2. Enable "HWID Lock" option<br/>
+                      3. Save changes - all new logins will be locked to user's hardware
+                    </p>
+                  </div>
+
+                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">C# HWID Implementation</span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => copyToClipboard(`// HWID Generation Method (Already included in PhantomAuth class)
+public static string GetHardwareId()
+{
+    try
+    {
+        string hwid = "";
+        
+        // Get CPU ID
+        ManagementObjectSearcher mos = new ManagementObjectSearcher("SELECT ProcessorId FROM Win32_Processor");
+        foreach (ManagementObject mo in mos.Get())
+        {
+            hwid += mo["ProcessorId"].ToString();
+        }
+        
+        // Get Motherboard Serial
+        mos = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard");
+        foreach (ManagementObject mo in mos.Get())
+        {
+            hwid += mo["SerialNumber"].ToString();
+        }
+        
+        // Get BIOS Serial
+        mos = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BIOS");
+        foreach (ManagementObject mo in mos.Get())
+        {
+            hwid += mo["SerialNumber"].ToString();
+        }
+        
+        // Create hash of combined hardware info
+        using (SHA256 sha256 = SHA256.Create())
+        {
+            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(hwid));
+            return Convert.ToBase64String(hash).Substring(0, 32);
+        }
+    }
+    catch
+    {
+        return "HWID-FALLBACK-" + Environment.MachineName;
+    }
+}
+
+// Usage in login
+AuthResponse result = await _auth.LoginAsync(username, password, true); // true enables HWID
+if (!result.Success && result.Message.Contains("HWID"))
+{
+    MessageBox.Show("This account is locked to a different computer!", "Hardware Mismatch", 
+                   MessageBoxButtons.OK, MessageBoxIcon.Warning);
+}`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <pre className="text-sm overflow-x-auto">
+{`// HWID Generation Method (Already included in PhantomAuth class)
+public static string GetHardwareId()
+{
+    try
+    {
+        string hwid = "";
+        
+        // Get CPU ID
+        ManagementObjectSearcher mos = new ManagementObjectSearcher("SELECT ProcessorId FROM Win32_Processor");
+        foreach (ManagementObject mo in mos.Get())
+        {
+            hwid += mo["ProcessorId"].ToString();
+        }
+        
+        // Get Motherboard Serial
+        mos = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard");
+        foreach (ManagementObject mo in mos.Get())
+        {
+            hwid += mo["SerialNumber"].ToString();
+        }
+        
+        // Get BIOS Serial
+        mos = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BIOS");
+        foreach (ManagementObject mo in mos.Get())
+        {
+            hwid += mo["SerialNumber"].ToString();
+        }
+        
+        // Create hash of combined hardware info
+        using (SHA256 sha256 = SHA256.Create())
+        {
+            byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(hwid));
+            return Convert.ToBase64String(hash).Substring(0, 32);
+        }
+    }
+    catch
+    {
+        return "HWID-FALLBACK-" + Environment.MachineName;
+    }
+}
+
+// Usage in login
+AuthResponse result = await _auth.LoginAsync(username, password, true); // true enables HWID
+if (!result.Success && result.Message.Contains("HWID"))
+{
+    MessageBox.Show("This account is locked to a different computer!", "Hardware Mismatch", 
+                   MessageBoxButtons.OK, MessageBoxIcon.Warning);
+}`}
+                    </pre>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Version Control */}
+              <TabsContent value="version">
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold">Application Version Control</h4>
+                  <p className="text-muted-foreground mb-4">
+                    Force users to update to the latest version by rejecting outdated application versions.
+                  </p>
+                  
+                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Set Required Version in Dashboard</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      1. Go to your application settings<br/>
+                      2. Update the "Version" field (e.g., "1.2.0")<br/>
+                      3. Save - users with older versions will be rejected
+                    </p>
+                  </div>
+
+                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">C# Version Checking Implementation</span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => copyToClipboard(`// Set your application version
+private const string APP_VERSION = "1.2.0"; // Update this with each release
+
+// Initialize PhantomAuth with version
+PhantomAuth _auth = new PhantomAuth(API_KEY, APP_VERSION);
+
+// Handle version mismatch error
+private async void btnLogin_Click(object sender, EventArgs e)
+{
+    AuthResponse result = await _auth.LoginAsync(username, password, true);
+    
+    if (!result.Success)
+    {
+        if (result.Message.Contains("version") || result.Message.Contains("update"))
+        {
+            DialogResult updateResult = MessageBox.Show(
+                result.Message + "\\n\\nWould you like to download the latest version?",
+                "Update Required",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+                
+            if (updateResult == DialogResult.Yes)
+            {
+                // Open download page or auto-updater
+                System.Diagnostics.Process.Start("https://yourwebsite.com/download");
+            }
+            Application.Exit(); // Close the application
+        }
+    }
+}
+
+// Custom messages for version mismatch can be set in the dashboard:
+// Default: "Please update your application to the latest version!"
+// Custom: "Version 1.2.0 required. Download from https://yoursite.com/download"`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <pre className="text-sm overflow-x-auto">
+{`// Set your application version
+private const string APP_VERSION = "1.2.0"; // Update this with each release
+
+// Initialize PhantomAuth with version
+PhantomAuth _auth = new PhantomAuth(API_KEY, APP_VERSION);
+
+// Handle version mismatch error
+private async void btnLogin_Click(object sender, EventArgs e)
+{
+    AuthResponse result = await _auth.LoginAsync(username, password, true);
+    
+    if (!result.Success)
+    {
+        if (result.Message.Contains("version") || result.Message.Contains("update"))
+        {
+            DialogResult updateResult = MessageBox.Show(
+                result.Message + "\\n\\nWould you like to download the latest version?",
+                "Update Required",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+                
+            if (updateResult == DialogResult.Yes)
+            {
+                // Open download page or auto-updater
+                System.Diagnostics.Process.Start("https://yourwebsite.com/download");
+            }
+            Application.Exit(); // Close the application
+        }
+    }
+}
+
+// Custom messages for version mismatch can be set in the dashboard:
+// Default: "Please update your application to the latest version!"
+// Custom: "Version 1.2.0 required. Download from https://yoursite.com/download"`}
+                    </pre>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Blacklist System */}
+              <TabsContent value="blacklist">
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold">Blacklist Management</h4>
+                  <p className="text-muted-foreground mb-4">
+                    Block specific IPs, HWIDs, usernames, or emails from accessing your application.
+                  </p>
+                  
+                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Manage Blacklist in Dashboard</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      1. Go to Blacklist section in the dashboard<br/>
+                      2. Add entries by type: IP Address, HWID, Username, or Email<br/>
+                      3. Specify reason (optional)<br/>
+                      4. Blacklisted items will be rejected automatically
+                    </p>
+                  </div>
+
+                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Blacklist Error Handling</span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => copyToClipboard(`// Handle blacklist rejections
+private async void btnLogin_Click(object sender, EventArgs e)
+{
+    AuthResponse result = await _auth.LoginAsync(username, password, true);
+    
+    if (!result.Success)
+    {
+        if (result.Message.Contains("blacklisted") || result.Message.Contains("blocked"))
+        {
+            MessageBox.Show(
+                "Access denied. Your account or computer has been blocked.\\n\\n" +
+                "Contact support if you believe this is an error.",
+                "Access Blocked",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Stop);
+                
+            Application.Exit(); // Close application
+        }
+    }
+}
+
+// Types of blacklist entries:
+// - IP Address: Blocks specific IP addresses
+// - HWID: Blocks specific hardware configurations  
+// - Username: Blocks specific usernames
+// - Email: Blocks specific email addresses
+
+// Blacklist entries can be:
+// - Global: Affects all applications
+// - Application-specific: Only affects your application`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <pre className="text-sm overflow-x-auto">
+{`// Handle blacklist rejections
+private async void btnLogin_Click(object sender, EventArgs e)
+{
+    AuthResponse result = await _auth.LoginAsync(username, password, true);
+    
+    if (!result.Success)
+    {
+        if (result.Message.Contains("blacklisted") || result.Message.Contains("blocked"))
+        {
+            MessageBox.Show(
+                "Access denied. Your account or computer has been blocked.\\n\\n" +
+                "Contact support if you believe this is an error.",
+                "Access Blocked",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Stop);
+                
+            Application.Exit(); // Close application
+        }
+    }
+}
+
+// Types of blacklist entries:
+// - IP Address: Blocks specific IP addresses
+// - HWID: Blocks specific hardware configurations  
+// - Username: Blocks specific usernames
+// - Email: Blocks specific email addresses
+
+// Blacklist entries can be:
+// - Global: Affects all applications
+// - Application-specific: Only affects your application`}
+                    </pre>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Activity Logs */}
+              <TabsContent value="activity">
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold">Activity Logging & Monitoring</h4>
+                  <p className="text-muted-foreground mb-4">
+                    Monitor user activities, login attempts, and security events in real-time.
+                  </p>
+                  
+                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">View Activity Logs in Dashboard</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      1. Go to Activity Logs section<br/>
+                      2. Filter by application, user, or event type<br/>
+                      3. Monitor login attempts, failures, and security events<br/>
+                      4. Export logs for security analysis
+                    </p>
+                  </div>
+
+                  <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">Automatic Activity Tracking</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      All authentication events are automatically logged including:
+                    </p>
+                    <ul className="text-sm text-muted-foreground mt-2 ml-4 list-disc">
+                      <li>Successful logins with IP address and HWID</li>
+                      <li>Failed login attempts with reasons</li>
+                      <li>User registrations</li>
+                      <li>Account suspensions and expirations</li>
+                      <li>HWID mismatches and version failures</li>
+                      <li>Blacklist blocks</li>
+                    </ul>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* Error Messages Reference */}
+        <Card className="phantom-card mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Code className="h-5 w-5 phantom-text mr-2" />
+              Error Messages Reference
+            </CardTitle>
+            <CardDescription>
+              Common error messages and how to handle them in your application
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-semibold text-red-600 mb-2">Authentication Errors</h4>
+                  <div className="text-sm space-y-2">
+                    <div><code className="bg-background px-1">Invalid credentials!</code><br/>
+                    <span className="text-muted-foreground">Wrong username/password</span></div>
+                    
+                    <div><code className="bg-background px-1">Account is disabled!</code><br/>
+                    <span className="text-muted-foreground">Account was paused/disabled</span></div>
+                    
+                    <div><code className="bg-background px-1">Account has expired!</code><br/>
+                    <span className="text-muted-foreground">User's time limit reached</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-semibold text-orange-600 mb-2">Security Errors</h4>
+                  <div className="text-sm space-y-2">
+                    <div><code className="bg-background px-1">Hardware ID mismatch detected!</code><br/>
+                    <span className="text-muted-foreground">HWID lock violation</span></div>
+                    
+                    <div><code className="bg-background px-1">Please update your application!</code><br/>
+                    <span className="text-muted-foreground">Version mismatch</span></div>
+                    
+                    <div><code className="bg-background px-1">Access blocked</code><br/>
+                    <span className="text-muted-foreground">Blacklist block</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-600 mb-2">API Errors</h4>
+                  <div className="text-sm space-y-2">
+                    <div><code className="bg-background px-1">Invalid API key</code><br/>
+                    <span className="text-muted-foreground">Wrong or missing API key</span></div>
+                    
+                    <div><code className="bg-background px-1">Application not found</code><br/>
+                    <span className="text-muted-foreground">API key doesn't match any app</span></div>
+                    
+                    <div><code className="bg-background px-1">Rate limit exceeded</code><br/>
+                    <span className="text-muted-foreground">Too many requests</span></div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-semibold text-green-600 mb-2">Success Messages</h4>
+                  <div className="text-sm space-y-2">
+                    <div><code className="bg-background px-1">Login successful!</code><br/>
+                    <span className="text-muted-foreground">Authentication completed</span></div>
+                    
+                    <div><code className="bg-background px-1">User registered successfully</code><br/>
+                    <span className="text-muted-foreground">New user created</span></div>
+                    
+                    <div><code className="bg-background px-1">User verified</code><br/>
+                    <span className="text-muted-foreground">Session validation passed</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Security Best Practices */}
         <Card className="phantom-card">
           <CardHeader>
@@ -1016,28 +1876,33 @@ if ($result['success']) {
           <CardContent>
             <div className="space-y-4">
               <div>
-                <h4 className="font-semibold mb-2">🔐 Keep Your API Key Secure</h4>
-                <p className="text-muted-foreground">Never expose your API key in client-side code. Store it securely on your server.</p>
+                <h4 className="font-semibold mb-2">Keep Your API Key Secure</h4>
+                <p className="text-muted-foreground">Never expose your API key in client-side code. Store it securely in your application settings.</p>
               </div>
 
               <div>
-                <h4 className="font-semibold mb-2">⏰ Set User Expiration Times</h4>
-                <p className="text-muted-foreground">Use the expiresAt parameter to set time limits on user accounts for enhanced security.</p>
+                <h4 className="font-semibold mb-2">Set User Expiration Times</h4>
+                <p className="text-muted-foreground">Use the expiresAt parameter to set time limits on user accounts for enhanced security and subscription management.</p>
               </div>
 
               <div>
-                <h4 className="font-semibold mb-2">🔄 Verify User Sessions</h4>
-                <p className="text-muted-foreground">Regularly verify user sessions using the /verify endpoint to ensure accounts are still valid.</p>
+                <h4 className="font-semibold mb-2">Verify User Sessions Regularly</h4>
+                <p className="text-muted-foreground">Call the /verify endpoint periodically to ensure accounts are still valid and haven't been disabled.</p>
               </div>
 
               <div>
-                <h4 className="font-semibold mb-2">🚦 Handle Errors Gracefully</h4>
-                <p className="text-muted-foreground">Always check the success field in API responses and handle errors appropriately.</p>
+                <h4 className="font-semibold mb-2">Handle Errors Gracefully</h4>
+                <p className="text-muted-foreground">Always check the success field in API responses and provide clear error messages to users.</p>
               </div>
 
               <div>
-                <h4 className="font-semibold mb-2">🔒 Use HTTPS</h4>
-                <p className="text-muted-foreground">Always use HTTPS when making API requests to protect data in transit.</p>
+                <h4 className="font-semibold mb-2">Use HTTPS Only</h4>
+                <p className="text-muted-foreground">Always use HTTPS when making API requests to protect credentials and session data in transit.</p>
+              </div>
+
+              <div>
+                <h4 className="font-semibold mb-2">Monitor Activity Logs</h4>
+                <p className="text-muted-foreground">Regularly review activity logs for suspicious login patterns, failed attempts, and security violations.</p>
               </div>
             </div>
           </CardContent>

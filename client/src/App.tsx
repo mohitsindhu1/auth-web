@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
 import AppManagement from "@/pages/app-management";
-import Documentation from "@/pages/documentation";
+import Documentation from "@/pages/documentation-fixed";
 import Webhooks from "@/pages/webhooks";
 import Blacklist from "@/pages/blacklist";
 import ActivityLogs from "@/pages/activity-logs";
