@@ -151,9 +151,15 @@ export class DatabaseStorage implements IStorage {
       updates.password = await this.hashPassword(updates.password);
     }
     
+    // Handle date conversion for expiresAt
+    const processedUpdates: any = { ...updates };
+    if (processedUpdates.expiresAt && typeof processedUpdates.expiresAt === 'string') {
+      processedUpdates.expiresAt = new Date(processedUpdates.expiresAt);
+    }
+    
     const [user] = await db
       .update(appUsers)
-      .set(updates)
+      .set(processedUpdates)
       .where(eq(appUsers.id, id))
       .returning();
     return user;

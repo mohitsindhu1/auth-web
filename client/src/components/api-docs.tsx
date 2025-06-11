@@ -104,30 +104,68 @@ public class AuthService
     private const string API_BASE = "https://24dff18d-18d0-4b5a-b988-058e9bf61703-00-3eqcnf9gyu1ms.picard.replit.dev/api";
     private const string API_KEY = "test-api-key-123";
 
-    public async Task<bool> LoginUser(string username, string password)
+    // Enhanced login with version checking and HWID locking
+    public async Task<AuthResponse> LoginUser(string username, string password, string appVersion = "1.0.0", string hwid = null)
     {
+        // Generate HWID if not provided
+        if (string.IsNullOrEmpty(hwid))
+        {
+            hwid = GetHardwareId();
+        }
+
         var loginData = new
         {
             username = username,
             password = password,
-            api_key = API_KEY
+            version = appVersion,
+            hwid = hwid
         };
 
         var json = JsonConvert.SerializeObject(loginData);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
+        
+        // Add API key to headers
+        client.DefaultRequestHeaders.Clear();
+        client.DefaultRequestHeaders.Add("X-API-Key", API_KEY);
 
         try
         {
-            var response = await client.PostAsync($"{API_BASE}/auth/login", content);
+            var response = await client.PostAsync($"{API_BASE}/v1/login", content);
             var responseString = await response.Content.ReadAsStringAsync();
             var result = JsonConvert.DeserializeObject<AuthResponse>(responseString);
             
-            return result.Success;
+            return result;
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Error: {ex.Message}");
-            return false;
+            return new AuthResponse 
+            { 
+                Success = false, 
+                Message = $"Connection error: {ex.Message}" 
+            };
+        }
+    }
+
+    // Generate hardware ID for HWID locking
+    private string GetHardwareId()
+    {
+        try
+        {
+            var motherboard = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard").Get().Cast<ManagementObject>().First();
+            var cpu = new ManagementObjectSearcher("SELECT ProcessorId FROM Win32_Processor").Get().Cast<ManagementObject>().First();
+            
+            string mbSerial = motherboard["SerialNumber"]?.ToString() ?? "Unknown";
+            string cpuId = cpu["ProcessorId"]?.ToString() ?? "Unknown";
+            
+            return $"{mbSerial}-{cpuId}".GetHashCode().ToString("X");
+        }
+        catch
+        {
+            // Fallback to MAC address
+            return NetworkInterface.GetAllNetworkInterfaces()
+                .FirstOrDefault()?
+                .GetPhysicalAddress()?
+                .ToString() ?? Environment.MachineName;
         }
     }
 
@@ -169,10 +207,25 @@ public class AuthResponse
     public string Message { get; set; }
     
     [JsonProperty("user_id")]
-    public string UserId { get; set; }
+    public int UserId { get; set; }
     
-    [JsonProperty("session_token")]
-    public string SessionToken { get; set; }
+    [JsonProperty("username")]
+    public string Username { get; set; }
+    
+    [JsonProperty("email")]
+    public string Email { get; set; }
+    
+    [JsonProperty("expires_at")]
+    public DateTime? ExpiresAt { get; set; }
+    
+    [JsonProperty("hwid_locked")]
+    public bool HwidLocked { get; set; }
+    
+    [JsonProperty("required_version")]
+    public string RequiredVersion { get; set; }
+    
+    [JsonProperty("current_version")]
+    public string CurrentVersion { get; set; }
 }
 
 // Usage in your WinForm:

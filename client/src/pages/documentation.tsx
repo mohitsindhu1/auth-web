@@ -211,7 +211,7 @@ export default function Documentation() {
                     
                     <div className="bg-muted/50 rounded-lg p-4 mb-4">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium">Request</span>
+                        <span className="text-sm font-medium">Enhanced Request (with version and HWID)</span>
                         <Button 
                           variant="ghost" 
                           size="sm"
@@ -220,7 +220,9 @@ export default function Documentation() {
   -H "X-API-Key: YOUR_API_KEY" \\
   -d '{
     "username": "johndoe",
-    "password": "securepassword123"
+    "password": "securepassword123",
+    "version": "1.0.0",
+    "hwid": "HWID-12345-ABCDE"
   }'`)}
                         >
                           <Copy className="h-4 w-4" />
@@ -232,7 +234,9 @@ export default function Documentation() {
   -H "X-API-Key: YOUR_API_KEY" \\
   -d '{
     "username": "johndoe",
-    "password": "securepassword123"
+    "password": "securepassword123",
+    "version": "1.0.0",
+    "hwid": "HWID-12345-ABCDE"
   }'`}
                       </pre>
                     </div>
@@ -245,9 +249,12 @@ export default function Documentation() {
                       <pre className="text-sm overflow-x-auto">
 {`{
   "success": true,
-  "message": "Login successful",
+  "message": "Login successful!",
   "user_id": 123,
   "username": "johndoe",
+  "email": "john@example.com",
+  "expires_at": "2024-12-31T23:59:59Z",
+  "hwid_locked": true
   "email": "john@example.com"
 }`}
                       </pre>

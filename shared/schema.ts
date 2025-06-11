@@ -123,7 +123,10 @@ export const updateAppUserSchema = createInsertSchema(appUsers).pick({
   lastLogin: true,
   loginAttempts: true,
   lastLoginAttempt: true,
-}).partial();
+}).partial().extend({
+  hwid: z.string().optional().nullable(),
+  expiresAt: z.string().optional().nullable(),
+});
 
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),

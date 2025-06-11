@@ -1205,8 +1205,8 @@ export default function Dashboard() {
                         email: editingUser.email,
                         isActive: editingUser.isActive,
                         isPaused: editingUser.isPaused,
-                        hwid: editingUser.hwid || null,
-                        expiresAt: editingUser.expiresAt ? new Date(editingUser.expiresAt) : null
+                        hwid: editingUser.hwid || undefined,
+                        expiresAt: editingUser.expiresAt ? editingUser.expiresAt : undefined
                       }
                     });
                   }
