@@ -37,7 +37,7 @@ import {
   Lock,
   Unlock,
   MessageSquare,
-  Version,
+  GitBranch,
   HardDrive,
   AlertTriangle,
   CheckCircle,
@@ -93,8 +93,13 @@ export default function Dashboard() {
     username: "",
     email: "",
     password: "",
-    expiresAt: ""
+    expiresAt: "",
+    hwid: ""
   });
+  const [isEditAppDialogOpen, setIsEditAppDialogOpen] = useState(false);
+  const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
+  const [editingApp, setEditingApp] = useState<Application | null>(null);
+  const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<number>>(new Set());
   const { toast } = useToast();
   const { user } = useAuth();
@@ -119,11 +124,8 @@ export default function Dashboard() {
 
   // Create application mutation
   const createApplicationMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string }) => {
-      return apiRequest("/api/applications", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+    mutationFn: async (data: { name: string; description: string; version?: string; hwidLockEnabled?: boolean }) => {
+      return apiRequest("/api/applications", "POST", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
@@ -154,18 +156,16 @@ export default function Dashboard() {
         username: data.username,
         email: data.email,
         password: data.password,
-        ...(data.expiresAt && { expiresAt: new Date(data.expiresAt).toISOString() })
+        ...(data.expiresAt && { expiresAt: new Date(data.expiresAt).toISOString() }),
+        ...(data.hwid && { hwid: data.hwid })
       };
 
-      return apiRequest(`/api/applications/${selectedApp.id}/users`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      return apiRequest(`/api/applications/${selectedApp.id}/users`, "POST", payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      setNewUserData({ username: "", email: "", password: "", expiresAt: "" });
+      setNewUserData({ username: "", email: "", password: "", expiresAt: "", hwid: "" });
       setIsNewUserDialogOpen(false);
       toast({
         title: "Success",
@@ -176,6 +176,140 @@ export default function Dashboard() {
       toast({
         title: "Error",
         description: error.message || "Failed to create user",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update application mutation
+  const updateApplicationMutation = useMutation({
+    mutationFn: async (data: { id: number; updates: Partial<Application> }) => {
+      return apiRequest(`/api/applications/${data.id}`, "PUT", data.updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
+      setIsEditAppDialogOpen(false);
+      setEditingApp(null);
+      toast({
+        title: "Success",
+        description: "Application updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update application",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update user mutation
+  const updateUserMutation = useMutation({
+    mutationFn: async (data: { appId: number; userId: number; updates: Partial<AppUser> }) => {
+      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}`, "PUT", data.updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
+      setIsEditUserDialogOpen(false);
+      setEditingUser(null);
+      toast({
+        title: "Success",
+        description: "User updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update user",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Pause user mutation
+  const pauseUserMutation = useMutation({
+    mutationFn: async (data: { appId: number; userId: number }) => {
+      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}/pause`, "PUT");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
+      toast({
+        title: "Success",
+        description: "User paused successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to pause user",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Unpause user mutation
+  const unpauseUserMutation = useMutation({
+    mutationFn: async (data: { appId: number; userId: number }) => {
+      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}/unpause`, "PUT");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
+      toast({
+        title: "Success",
+        description: "User unpaused successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to unpause user",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete user mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: async (data: { appId: number; userId: number }) => {
+      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete user",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete application mutation
+  const deleteApplicationMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/applications/${id}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      if (selectedApp) {
+        setSelectedApp(null);
+      }
+      toast({
+        title: "Success",
+        description: "Application deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete application",
         variant: "destructive",
       });
     },
@@ -286,7 +420,7 @@ export default function Dashboard() {
             <div>
               <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
               <p className="text-muted-foreground">
-                Welcome back, {user?.firstName || user?.email || 'User'}
+                Welcome back, {(user as any)?.firstName || (user as any)?.email || 'User'}
               </p>
             </div>
             <div className="flex items-center space-x-2">
