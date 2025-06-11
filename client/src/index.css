@@ -4,55 +4,56 @@
 
 :root {
   --background: hsl(0, 0%, 100%);
-  --foreground: hsl(222, 84%, 4.9%);
-  --muted: hsl(210, 40%, 96%);
-  --muted-foreground: hsl(215, 16%, 46.9%);
+  --foreground: hsl(0, 0%, 9%);
+  --muted: hsl(0, 0%, 96%);
+  --muted-foreground: hsl(0, 0%, 45%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(222, 84%, 4.9%);
+  --popover-foreground: hsl(0, 0%, 9%);
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(222, 84%, 4.9%);
-  --border: hsl(214, 32%, 91%);
-  --input: hsl(214, 32%, 91%);
-  --primary: hsl(221, 83%, 53%);
-  --primary-foreground: hsl(210, 40%, 98%);
-  --secondary: hsl(210, 40%, 96%);
-  --secondary-foreground: hsl(222, 47%, 11%);
-  --accent: hsl(210, 40%, 96%);
-  --accent-foreground: hsl(222, 47%, 11%);
+  --card-foreground: hsl(0, 0%, 9%);
+  --border: hsl(0, 0%, 89%);
+  --input: hsl(0, 0%, 89%);
+  --primary: hsl(0, 72%, 51%);
+  --primary-foreground: hsl(0, 0%, 98%);
+  --secondary: hsl(0, 0%, 96%);
+  --secondary-foreground: hsl(0, 0%, 9%);
+  --accent: hsl(0, 0%, 96%);
+  --accent-foreground: hsl(0, 0%, 9%);
   --destructive: hsl(0, 84%, 60%);
-  --destructive-foreground: hsl(210, 40%, 98%);
-  --ring: hsl(221, 83%, 53%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(0, 72%, 51%);
   --radius: 0.5rem;
   
-  /* Professional colors */
-  --primary-blue: hsl(221, 83%, 53%);
-  --secondary-blue: hsl(214, 95%, 93%);
-  --accent-green: hsl(142, 71%, 45%);
+  /* Phantom Auth Red Theme */
+  --phantom-red: hsl(0, 72%, 51%);
+  --phantom-red-dark: hsl(0, 72%, 45%);
+  --phantom-red-light: hsl(0, 60%, 95%);
+  --phantom-gray: hsl(0, 0%, 45%);
+  --phantom-black: hsl(0, 0%, 9%);
+  --success-green: hsl(142, 71%, 45%);
   --warning-orange: hsl(38, 92%, 50%);
-  --danger-red: hsl(0, 84%, 60%);
-  --neutral-gray: hsl(215, 16%, 46.9%);
 }
 
 .dark {
-  --background: hsl(222, 84%, 5%);
-  --foreground: hsl(210, 40%, 98%);
-  --muted: hsl(217, 32%, 17%);
-  --muted-foreground: hsl(215, 20%, 65%);
-  --popover: hsl(222, 84%, 5%);
-  --popover-foreground: hsl(210, 40%, 98%);
-  --card: hsl(222, 84%, 5%);
-  --card-foreground: hsl(210, 40%, 98%);
-  --border: hsl(217, 32%, 17%);
-  --input: hsl(217, 32%, 17%);
-  --primary: hsl(217, 91%, 60%);
-  --primary-foreground: hsl(210, 40%, 98%);
-  --secondary: hsl(217, 32%, 17%);
-  --secondary-foreground: hsl(210, 40%, 98%);
-  --accent: hsl(217, 32%, 17%);
-  --accent-foreground: hsl(210, 40%, 98%);
+  --background: hsl(0, 0%, 7%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(0, 0%, 14%);
+  --muted-foreground: hsl(0, 0%, 63%);
+  --popover: hsl(0, 0%, 7%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(0, 0%, 7%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(0, 0%, 14%);
+  --input: hsl(0, 0%, 14%);
+  --primary: hsl(0, 72%, 51%);
+  --primary-foreground: hsl(0, 0%, 98%);
+  --secondary: hsl(0, 0%, 14%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(0, 0%, 14%);
+  --accent-foreground: hsl(0, 0%, 98%);
   --destructive: hsl(0, 62%, 30%);
-  --destructive-foreground: hsl(210, 40%, 98%);
-  --ring: hsl(212, 95%, 83%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(0, 72%, 51%);
 }
 
 @layer base {
@@ -65,61 +66,89 @@
   }
 }
 
-/* Professional custom styles */
-.gradient-hero {
-  background: linear-gradient(135deg, var(--primary-blue) 0%, hsl(214, 95%, 93%) 100%);
+/* Phantom Auth Custom Styles */
+.phantom-gradient {
+  background: linear-gradient(135deg, var(--phantom-red) 0%, var(--phantom-red-dark) 100%);
 }
 
-.professional-gradient {
-  background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
+.phantom-hero-gradient {
+  background: linear-gradient(135deg, var(--phantom-red) 0%, var(--phantom-red-light) 100%);
 }
 
-.subtle-shadow {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
-
-.professional-card {
-  background: white;
+.phantom-card {
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.professional-card:hover {
-  border-color: var(--primary-blue);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+.phantom-card:hover {
+  border-color: var(--phantom-red);
+  box-shadow: 0 8px 25px rgba(220, 38, 38, 0.15);
   transform: translateY(-2px);
 }
 
-.professional-button {
-  background: var(--primary-blue);
+.phantom-button {
+  background: var(--phantom-red);
   color: white;
   font-weight: 600;
   transition: all 0.2s ease;
   border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
 }
 
-.professional-button:hover {
-  background: hsl(221, 83%, 45%);
+.phantom-button:hover {
+  background: var(--phantom-red-dark);
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
 }
 
-.success-color { color: var(--accent-green); }
+.phantom-button:active {
+  transform: translateY(0);
+}
+
+.phantom-nav {
+  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(220, 38, 38, 0.1);
+}
+
+.dark .phantom-nav {
+  background: rgba(0, 0, 0, 0.9);
+  border-bottom: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.phantom-stats-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.phantom-stats-card:hover {
+  border-color: var(--phantom-red);
+  box-shadow: 0 4px 15px rgba(220, 38, 38, 0.1);
+}
+
+/* Color utilities */
+.phantom-text { color: var(--phantom-red); }
+.phantom-bg { background-color: var(--phantom-red); }
+.phantom-border { border-color: var(--phantom-red); }
+.success-color { color: var(--success-green); }
 .warning-color { color: var(--warning-orange); }
-.danger-color { color: var(--danger-red); }
-.neutral-color { color: var(--neutral-gray); }
-.primary-color { color: var(--primary-blue); }
+.danger-color { color: var(--phantom-red); }
 
-.bg-success { background-color: var(--accent-green); }
-.bg-warning { background-color: var(--warning-orange); }
-.bg-danger { background-color: var(--danger-red); }
-.bg-primary { background-color: var(--primary-blue); }
+/* Dark mode specific styles */
+.dark .phantom-card {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
 
-.border-success { border-color: var(--accent-green); }
-.border-warning { border-color: var(--warning-orange); }
-.border-danger { border-color: var(--danger-red); }
-.border-primary { border-color: var(--primary-blue); }
+.dark .phantom-card:hover {
+  box-shadow: 0 8px 25px rgba(220, 38, 38, 0.2);
+}
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
