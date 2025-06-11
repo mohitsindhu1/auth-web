@@ -39,6 +39,8 @@ export interface IStorage {
   deleteAppUser(id: number): Promise<boolean>;
   pauseAppUser(id: number): Promise<boolean>;
   unpauseAppUser(id: number): Promise<boolean>;
+  resetAppUserHwid(id: number): Promise<boolean>;
+  setAppUserHwid(id: number, hwid: string): Promise<boolean>;
   getAllAppUsers(applicationId: number): Promise<AppUser[]>;
   
   // Auth methods
@@ -183,6 +185,22 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAppUser(id: number): Promise<boolean> {
     const result = await db.delete(appUsers).where(eq(appUsers.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async resetAppUserHwid(id: number): Promise<boolean> {
+    const result = await db
+      .update(appUsers)
+      .set({ hwid: null })
+      .where(eq(appUsers.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async setAppUserHwid(id: number, hwid: string): Promise<boolean> {
+    const result = await db
+      .update(appUsers)
+      .set({ hwid })
+      .where(eq(appUsers.id, id));
     return (result.rowCount || 0) > 0;
   }
 

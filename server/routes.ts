@@ -253,9 +253,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Username already exists in this application" });
       }
 
-      const existingEmail = await storage.getAppUserByEmail(applicationId, validatedData.email);
-      if (existingEmail) {
-        return res.status(400).json({ message: "Email already exists in this application" });
+      if (validatedData.email) {
+        const existingEmail = await storage.getAppUserByEmail(applicationId, validatedData.email);
+        if (existingEmail) {
+          return res.status(400).json({ message: "Email already exists in this application" });
+        }
       }
 
       const user = await storage.createAppUser(applicationId, validatedData);
@@ -409,6 +411,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting app user:", error);
       res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
+  // Reset user HWID
+  app.post('/api/applications/:id/users/:userId/reset-hwid', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const userId = parseInt(req.params.userId);
+      
+      const application = await storage.getApplication(applicationId);
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      // Check if user owns this application
+      const ownerId = req.user.claims.sub;
+      if (application.userId !== ownerId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const user = await storage.getAppUser(userId);
+      if (!user || user.applicationId !== applicationId) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const reset = await storage.resetAppUserHwid(userId);
+      if (!reset) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({ message: "HWID reset successfully" });
+    } catch (error) {
+      console.error("Error resetting user HWID:", error);
+      res.status(500).json({ message: "Failed to reset HWID" });
     }
   });
 

@@ -61,7 +61,7 @@ export const appUsers = pgTable("app_users", {
   applicationId: integer("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
   username: text("username").notNull(),
   password: text("password").notNull(),
-  email: text("email").notNull(),
+  email: text("email"),
   isActive: boolean("is_active").notNull().default(true),
   isPaused: boolean("is_paused").notNull().default(false),
   hwid: text("hwid"), // Hardware ID for locking
