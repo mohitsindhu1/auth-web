@@ -1,38 +1,41 @@
 import {
   users,
-  apiKeys,
+  applications,
   appUsers,
   type User,
-  type ApiKey,
-  type InsertApiKey,
+  type UpsertUser,
+  type Application,
+  type InsertApplication,
   type AppUser,
   type InsertAppUser,
-  type UpsertUser,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
-import { nanoid } from "nanoid";
 import bcrypt from "bcrypt";
+import { nanoid } from "nanoid";
 
+// Interface for storage operations
 export interface IStorage {
   // User operations for Replit Auth
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   
+  // Application methods
+  getApplication(id: number): Promise<Application | undefined>;
+  getApplicationByApiKey(apiKey: string): Promise<Application | undefined>;
+  createApplication(userId: string, app: InsertApplication): Promise<Application>;
+  updateApplication(id: number, updates: Partial<Application>): Promise<Application | undefined>;
+  deleteApplication(id: number): Promise<boolean>;
+  getAllApplications(userId: string): Promise<Application[]>;
+  
   // App User methods
   getAppUser(id: number): Promise<AppUser | undefined>;
-  getAppUserByUsername(userId: string, username: string): Promise<AppUser | undefined>;
-  getAppUserByEmail(userId: string, email: string): Promise<AppUser | undefined>;
-  createAppUser(userId: string, user: InsertAppUser): Promise<AppUser>;
+  getAppUserByUsername(applicationId: number, username: string): Promise<AppUser | undefined>;
+  getAppUserByEmail(applicationId: number, email: string): Promise<AppUser | undefined>;
+  createAppUser(applicationId: number, user: InsertAppUser): Promise<AppUser>;
   updateAppUser(id: number, updates: Partial<AppUser>): Promise<AppUser | undefined>;
   deleteAppUser(id: number): Promise<boolean>;
-  getAllAppUsers(userId: string): Promise<AppUser[]>;
-  
-  // API Key methods
-  getApiKey(key: string): Promise<ApiKey | undefined>;
-  createApiKey(userId: string, apiKey: InsertApiKey): Promise<ApiKey>;
-  getAllApiKeys(userId: string): Promise<ApiKey[]>;
-  deactivateApiKey(id: number): Promise<boolean>;
+  getAllAppUsers(applicationId: number): Promise<AppUser[]>;
   
   // Auth methods
   validatePassword(plainPassword: string, hashedPassword: string): Promise<boolean>;
@@ -61,35 +64,77 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  // Application methods
+  async getApplication(id: number): Promise<Application | undefined> {
+    const [app] = await db.select().from(applications).where(eq(applications.id, id));
+    return app;
+  }
+
+  async getApplicationByApiKey(apiKey: string): Promise<Application | undefined> {
+    const [app] = await db.select().from(applications).where(eq(applications.apiKey, apiKey));
+    return app;
+  }
+
+  async createApplication(userId: string, insertApp: InsertApplication): Promise<Application> {
+    const apiKey = `phantom_${nanoid(32)}`;
+    const [app] = await db
+      .insert(applications)
+      .values({
+        ...insertApp,
+        userId,
+        apiKey,
+      })
+      .returning();
+    return app;
+  }
+
+  async updateApplication(id: number, updates: Partial<Application>): Promise<Application | undefined> {
+    const [app] = await db
+      .update(applications)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(applications.id, id))
+      .returning();
+    return app;
+  }
+
+  async deleteApplication(id: number): Promise<boolean> {
+    const result = await db.delete(applications).where(eq(applications.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getAllApplications(userId: string): Promise<Application[]> {
+    return await db.select().from(applications).where(eq(applications.userId, userId));
+  }
+
   // App User methods
   async getAppUser(id: number): Promise<AppUser | undefined> {
     const [user] = await db.select().from(appUsers).where(eq(appUsers.id, id));
     return user;
   }
 
-  async getAppUserByUsername(userId: string, username: string): Promise<AppUser | undefined> {
+  async getAppUserByUsername(applicationId: number, username: string): Promise<AppUser | undefined> {
     const [user] = await db
       .select()
       .from(appUsers)
-      .where(and(eq(appUsers.userId, userId), eq(appUsers.username, username)));
+      .where(and(eq(appUsers.applicationId, applicationId), eq(appUsers.username, username)));
     return user;
   }
 
-  async getAppUserByEmail(userId: string, email: string): Promise<AppUser | undefined> {
+  async getAppUserByEmail(applicationId: number, email: string): Promise<AppUser | undefined> {
     const [user] = await db
       .select()
       .from(appUsers)
-      .where(and(eq(appUsers.userId, userId), eq(appUsers.email, email)));
+      .where(and(eq(appUsers.applicationId, applicationId), eq(appUsers.email, email)));
     return user;
   }
 
-  async createAppUser(userId: string, insertUser: InsertAppUser): Promise<AppUser> {
+  async createAppUser(applicationId: number, insertUser: InsertAppUser): Promise<AppUser> {
     const hashedPassword = await this.hashPassword(insertUser.password);
     const [user] = await db
       .insert(appUsers)
       .values({
         ...insertUser,
-        userId,
+        applicationId,
         password: hashedPassword,
       })
       .returning();
@@ -97,53 +142,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateAppUser(id: number, updates: Partial<AppUser>): Promise<AppUser | undefined> {
-    const [updatedUser] = await db
+    const [user] = await db
       .update(appUsers)
       .set(updates)
       .where(eq(appUsers.id, id))
       .returning();
-    return updatedUser;
+    return user;
   }
 
   async deleteAppUser(id: number): Promise<boolean> {
     const result = await db.delete(appUsers).where(eq(appUsers.id, id));
-    return result.rowCount > 0;
+    return (result.rowCount || 0) > 0;
   }
 
-  async getAllAppUsers(userId: string): Promise<AppUser[]> {
-    return await db.select().from(appUsers).where(eq(appUsers.userId, userId));
-  }
-
-  // API Key methods
-  async getApiKey(key: string): Promise<ApiKey | undefined> {
-    const [apiKey] = await db.select().from(apiKeys).where(eq(apiKeys.key, key));
-    return apiKey;
-  }
-
-  async createApiKey(userId: string, insertApiKey: InsertApiKey): Promise<ApiKey> {
-    const key = `pk_${nanoid(32)}`;
-    const [apiKey] = await db
-      .insert(apiKeys)
-      .values({
-        ...insertApiKey,
-        userId,
-        key,
-      })
-      .returning();
-    return apiKey;
-  }
-
-  async getAllApiKeys(userId: string): Promise<ApiKey[]> {
-    return await db.select().from(apiKeys).where(eq(apiKeys.userId, userId));
-  }
-
-  async deactivateApiKey(id: number): Promise<boolean> {
-    const [updatedKey] = await db
-      .update(apiKeys)
-      .set({ isActive: false })
-      .where(eq(apiKeys.id, id))
-      .returning();
-    return !!updatedKey;
+  async getAllAppUsers(applicationId: number): Promise<AppUser[]> {
+    return await db.select().from(appUsers).where(eq(appUsers.applicationId, applicationId));
   }
 
   // Auth methods
@@ -152,8 +165,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async hashPassword(password: string): Promise<string> {
-    const saltRounds = 10;
-    return await bcrypt.hash(password, saltRounds);
+    return await bcrypt.hash(password, 12);
   }
 }
 
