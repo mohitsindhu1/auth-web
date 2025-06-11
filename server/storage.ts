@@ -6,8 +6,10 @@ import {
   type UpsertUser,
   type Application,
   type InsertApplication,
+  type UpdateApplication,
   type AppUser,
   type InsertAppUser,
+  type UpdateAppUser,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -24,7 +26,7 @@ export interface IStorage {
   getApplication(id: number): Promise<Application | undefined>;
   getApplicationByApiKey(apiKey: string): Promise<Application | undefined>;
   createApplication(userId: string, app: InsertApplication): Promise<Application>;
-  updateApplication(id: number, updates: Partial<Application>): Promise<Application | undefined>;
+  updateApplication(id: number, updates: UpdateApplication): Promise<Application | undefined>;
   deleteApplication(id: number): Promise<boolean>;
   getAllApplications(userId: string): Promise<Application[]>;
   
@@ -33,8 +35,10 @@ export interface IStorage {
   getAppUserByUsername(applicationId: number, username: string): Promise<AppUser | undefined>;
   getAppUserByEmail(applicationId: number, email: string): Promise<AppUser | undefined>;
   createAppUser(applicationId: number, user: InsertAppUser): Promise<AppUser>;
-  updateAppUser(id: number, updates: Partial<AppUser>): Promise<AppUser | undefined>;
+  updateAppUser(id: number, updates: UpdateAppUser): Promise<AppUser | undefined>;
   deleteAppUser(id: number): Promise<boolean>;
+  pauseAppUser(id: number): Promise<boolean>;
+  unpauseAppUser(id: number): Promise<boolean>;
   getAllAppUsers(applicationId: number): Promise<AppUser[]>;
   
   // Auth methods
@@ -88,7 +92,7 @@ export class DatabaseStorage implements IStorage {
     return app;
   }
 
-  async updateApplication(id: number, updates: Partial<Application>): Promise<Application | undefined> {
+  async updateApplication(id: number, updates: UpdateApplication): Promise<Application | undefined> {
     const [app] = await db
       .update(applications)
       .set({ ...updates, updatedAt: new Date() })
@@ -141,13 +145,34 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateAppUser(id: number, updates: Partial<AppUser>): Promise<AppUser | undefined> {
+  async updateAppUser(id: number, updates: UpdateAppUser): Promise<AppUser | undefined> {
+    // If password is being updated, hash it first
+    if (updates.password) {
+      updates.password = await this.hashPassword(updates.password);
+    }
+    
     const [user] = await db
       .update(appUsers)
       .set(updates)
       .where(eq(appUsers.id, id))
       .returning();
     return user;
+  }
+
+  async pauseAppUser(id: number): Promise<boolean> {
+    const result = await db
+      .update(appUsers)
+      .set({ isPaused: true })
+      .where(eq(appUsers.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async unpauseAppUser(id: number): Promise<boolean> {
+    const result = await db
+      .update(appUsers)
+      .set({ isPaused: false })
+      .where(eq(appUsers.id, id));
+    return (result.rowCount || 0) > 0;
   }
 
   async deleteAppUser(id: number): Promise<boolean> {

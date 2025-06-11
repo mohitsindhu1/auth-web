@@ -49,6 +49,7 @@
     "@tsparticles/shape-polygon": "^3.8.1",
     "@tsparticles/shape-star": "^3.8.1",
     "@tsparticles/updater-life": "^3.8.1",
+    "@types/bcrypt": "^5.0.2",
     "@types/memoizee": "^0.4.12",
     "bcrypt": "^6.0.0",
     "class-variance-authority": "^0.7.1",

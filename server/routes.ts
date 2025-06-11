@@ -2,7 +2,13 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
-import { insertApplicationSchema, insertAppUserSchema, loginSchema } from "@shared/schema";
+import { 
+  insertApplicationSchema, 
+  insertAppUserSchema, 
+  updateApplicationSchema,
+  updateAppUserSchema,
+  loginSchema 
+} from "@shared/schema";
 import { z } from "zod";
 
 // Middleware to validate API key for external API access
