@@ -228,23 +228,56 @@ public class AuthResponse
     public string CurrentVersion { get; set; }
 }
 
-// Usage in your WinForm:
+// Enhanced Usage in your WinForm with custom message handling:
 private async void btnLogin_Click(object sender, EventArgs e)
 {
     var authService = new AuthService();
-    bool loginSuccess = await authService.LoginUser(txtUsername.Text, txtPassword.Text);
+    var result = await authService.LoginUser(txtUsername.Text, txtPassword.Text, "1.0.0");
     
-    if (loginSuccess)
+    if (result.Success)
     {
-        MessageBox.Show("Login successful!");
-        // Proceed to next form/step
+        // Show custom success message from server
+        MessageBox.Show(result.Message, "Login Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        
+        // Check if account will expire soon
+        if (result.ExpiresAt.HasValue && result.ExpiresAt.Value <= DateTime.Now.AddDays(7))
+        {
+            MessageBox.Show($"Your account expires on {result.ExpiresAt.Value:yyyy-MM-dd}", 
+                          "Account Expiring Soon", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        
+        // Show HWID lock status
+        if (result.HwidLocked)
+        {
+            MessageBox.Show("Your account is hardware-locked to this device for security.", 
+                          "Security Notice", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        
+        // Proceed to main application
         this.Hide();
-        var dashboardForm = new DashboardForm();
-        dashboardForm.Show();
+        var mainForm = new MainForm();
+        mainForm.Show();
     }
     else
     {
-        MessageBox.Show("Invalid credentials!");
+        // Show custom error message from server
+        MessageBox.Show(result.Message, "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        
+        // Handle version mismatch
+        if (!string.IsNullOrEmpty(result.RequiredVersion))
+        {
+            var updateResult = MessageBox.Show(
+                $"Your version ({result.CurrentVersion}) is outdated. Required: {result.RequiredVersion}\\n\\nWould you like to download the update?",
+                "Update Required", 
+                MessageBoxButtons.YesNo, 
+                MessageBoxIcon.Question);
+                
+            if (updateResult == DialogResult.Yes)
+            {
+                // Open update URL or trigger auto-updater
+                Process.Start("https://your-app-download-url.com");
+            }
+        }
     }
 }
 
