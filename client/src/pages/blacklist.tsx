@@ -64,12 +64,8 @@ export default function Blacklist() {
 
   // Create blacklist entry mutation
   const createBlacklistMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
-      const payload = {
-        ...data,
-        applicationId: data.applicationId ? parseInt(data.applicationId) : undefined
-      };
-      return apiRequest("/api/blacklist", "POST", payload);
+    mutationFn: async (data: { type: string; value: string; reason: string; applicationId?: number }) => {
+      return apiRequest("/api/blacklist", "POST", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/blacklist"] });
@@ -122,11 +118,13 @@ export default function Blacklist() {
     
     // Convert "global" to undefined for the API
     const submitData = {
-      ...formData,
-      applicationId: formData.applicationId === "global" ? undefined : formData.applicationId
+      type: formData.type,
+      value: formData.value,
+      reason: formData.reason,
+      applicationId: formData.applicationId === "global" ? undefined : parseInt(formData.applicationId)
     };
     
-    createBlacklistMutation.mutate(submitData);
+    createBlacklistMutation.mutate(submitData as { type: string; value: string; reason: string; applicationId?: number });
   };
 
   const getTypeIcon = (type: string) => {

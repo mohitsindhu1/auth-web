@@ -168,6 +168,26 @@ export default function Webhooks() {
     }));
   };
 
+  // Test webhook mutation
+  const testWebhookMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("/api/test-webhook", "POST");
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Success",
+        description: "Test webhook sent successfully! Check your Discord channel.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send test webhook",
+        variant: "destructive",
+      });
+    },
+  });
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -181,13 +201,22 @@ export default function Webhooks() {
             </h1>
             <p className="text-muted-foreground">Manage webhook endpoints for real-time notifications</p>
           </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => testWebhookMutation.mutate()}
+              disabled={testWebhookMutation.isPending}
+            >
+              {testWebhookMutation.isPending ? "Sending..." : "Test Webhook"}
+            </Button>
+          </div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Webhook
-              </Button>
-            </DialogTrigger>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Webhook
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Create New Webhook</DialogTitle>
