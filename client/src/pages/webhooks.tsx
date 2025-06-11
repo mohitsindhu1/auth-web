@@ -209,15 +209,14 @@ export default function Webhooks() {
             >
               {testWebhookMutation.isPending ? "Sending..." : "Test Webhook"}
             </Button>
-          </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
                   Create Webhook
                 </Button>
               </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Create New Webhook</DialogTitle>
                 <DialogDescription>
@@ -276,8 +275,9 @@ export default function Webhooks() {
                   {createWebhookMutation.isPending ? "Creating..." : "Create Webhook"}
                 </Button>
               </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Webhooks List */}
