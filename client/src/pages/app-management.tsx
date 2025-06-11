@@ -470,16 +470,46 @@ export default function AppManagement() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div>
+                    <Label className="text-sm font-medium">Name</Label>
+                    <p className="text-sm text-muted-foreground">{application.name || "N/A"}</p>
+                  </div>
+                  <div>
                     <Label className="text-sm font-medium">Version</Label>
-                    <p className="text-sm text-muted-foreground">{application.version}</p>
+                    <p className="text-sm text-muted-foreground">{application.version || "N/A"}</p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Description</Label>
+                    <p className="text-sm text-muted-foreground">{application.description || "No description"}</p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Created</Label>
-                    <p className="text-sm text-muted-foreground">{formatDate(application.createdAt)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {application.createdAt ? new Date(application.createdAt).toLocaleDateString() + ' ' + new Date(application.createdAt).toLocaleTimeString() : "N/A"}
+                    </p>
                   </div>
                   <div>
                     <Label className="text-sm font-medium">Last Updated</Label>
-                    <p className="text-sm text-muted-foreground">{formatDate(application.updatedAt)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {application.updatedAt ? new Date(application.updatedAt).toLocaleDateString() + ' ' + new Date(application.updatedAt).toLocaleTimeString() : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">API Key</Label>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                        {application.apiKey ? `${application.apiKey.substring(0, 8)}...` : "N/A"}
+                      </span>
+                      {application.apiKey && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(application.apiKey)}
+                          title="Copy API Key"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -491,15 +521,23 @@ export default function AppManagement() {
                 <CardContent className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">Status</Label>
-                    <Badge variant={application.isActive ? "default" : "secondary"}>
-                      {application.isActive ? "Active" : "Inactive"}
+                    <Badge variant={application.isActive === true ? "default" : "secondary"}>
+                      {application.isActive === true ? "Active" : "Inactive"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">HWID Lock</Label>
-                    <Badge variant={application.hwidLockEnabled ? "default" : "secondary"}>
-                      {application.hwidLockEnabled ? "Enabled" : "Disabled"}
+                    <Badge variant={application.hwidLockEnabled === true ? "default" : "secondary"}>
+                      {application.hwidLockEnabled === true ? "Enabled" : "Disabled"}
                     </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">User Count</Label>
+                    <span className="text-sm font-medium">{appUsers.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Active Users</Label>
+                    <span className="text-sm font-medium">{appUsers.filter(u => u.isActive && !u.isPaused).length}</span>
                   </div>
                 </CardContent>
               </Card>
