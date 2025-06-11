@@ -300,8 +300,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const activeSessions = await storage.getActiveSessions(applicationId);
       const recentActivity = await storage.getActivityLogs(applicationId, 100);
       
-      // Calculate active users (users with active sessions)
-      const activeUsers = activeSessions.length;
+      // Calculate active users (users who are active and not paused)
+      const activeUsers = users.filter(u => u.isActive && !u.isPaused).length;
       const totalUsers = users.length;
       const registeredUsers = users.filter(u => u.isActive && !u.isPaused).length;
       
