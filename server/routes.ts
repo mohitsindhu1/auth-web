@@ -52,6 +52,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Firebase authentication route
+  app.post('/api/auth/firebase-login', async (req: any, res) => {
+    try {
+      const { firebase_token, firebase_uid, email, display_name } = req.body;
+
+      if (!firebase_token || !firebase_uid) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Firebase token and UID are required" 
+        });
+      }
+
+      // Verify Firebase token
+      const admin = require('firebase-admin');
+      let decodedToken;
+      try {
+        decodedToken = await admin.auth().verifyIdToken(firebase_token);
+      } catch (error) {
+        console.error("Firebase token verification failed:", error);
+        return res.status(401).json({ 
+          success: false, 
+          message: "Invalid Firebase token" 
+        });
+      }
+
+      if (decodedToken.uid !== firebase_uid) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Firebase UID mismatch" 
+        });
+      }
+
+      // Create or update user in our system
+      const userData = {
+        id: firebase_uid,
+        email: email || decodedToken.email,
+        firstName: display_name?.split(' ')[0] || '',
+        lastName: display_name?.split(' ').slice(1).join(' ') || '',
+        profileImageUrl: decodedToken.picture || null,
+      };
+
+      const user = await storage.upsertUser(userData);
+
+      // Create session
+      req.session.user = {
+        claims: {
+          sub: firebase_uid,
+          email: email || decodedToken.email,
+        }
+      };
+
+      res.json({
+        success: true,
+        message: "Authentication successful",
+        account_id: firebase_uid,
+        user: user
+      });
+
+    } catch (error) {
+      console.error("Firebase login error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Authentication failed" 
+      });
+    }
+  });
+
   // Dashboard stats
   app.get('/api/dashboard/stats', isAuthenticated, async (req: any, res) => {
     try {

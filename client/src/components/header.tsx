@@ -18,8 +18,15 @@ export default function Header() {
     }
   };
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error("Logout error:", error);
+      window.location.href = "/api/logout";
+    }
   };
 
   if (isAuthenticated) {
