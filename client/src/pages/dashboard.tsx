@@ -4,21 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  Gamepad2, 
+  Building, 
   Key, 
   Users, 
   Server, 
-  Zap, 
+  FileText, 
   Shield, 
   Plus, 
   Eye,
   Trash2,
   Copy,
-  Star,
-  Trophy
+  Activity,
+  Settings
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import ParticleBackground from "@/components/ParticleBackground";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
