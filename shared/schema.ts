@@ -163,11 +163,10 @@ export const insertApplicationSchema = createInsertSchema(applications).pick({
 export const insertAppUserSchema = createInsertSchema(appUsers).pick({
   username: true,
   password: true,
-  email: true,
   expiresAt: true,
   hwid: true,
 }).extend({
-  email: z.string().email().optional().nullable(),
+  email: z.union([z.string().email(), z.literal(""), z.null(), z.undefined()]).optional().transform(val => val === "" || val === undefined ? null : val),
   expiresAt: z.string().optional().nullable(),
   hwid: z.string().optional().nullable(),
 });

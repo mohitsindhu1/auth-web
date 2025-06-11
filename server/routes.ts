@@ -309,10 +309,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertAppUserSchema.parse(req.body);
       
-      // Process date conversion for expiresAt
+      // Process date conversion for expiresAt and handle empty email
       const processedData: any = { ...validatedData };
       if (processedData.expiresAt && typeof processedData.expiresAt === 'string') {
         processedData.expiresAt = new Date(processedData.expiresAt);
+      }
+      
+      // Convert empty email string to null
+      if (processedData.email === '' || processedData.email === undefined) {
+        processedData.email = null;
       }
       
       // Check for existing username/email in this application
@@ -321,8 +326,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Username already exists in this application" });
       }
 
-      if (validatedData.email) {
-        const existingEmail = await storage.getAppUserByEmail(applicationId, validatedData.email);
+      if (processedData.email) {
+        const existingEmail = await storage.getAppUserByEmail(applicationId, processedData.email);
         if (existingEmail) {
           return res.status(400).json({ message: "Email already exists in this application" });
         }
