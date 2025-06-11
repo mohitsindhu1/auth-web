@@ -49,6 +49,7 @@ export const insertAccountSchema = createInsertSchema(accounts).pick({
   firebaseUid: true,
   email: true,
   displayName: true,
+  isActive: true,
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -65,6 +66,9 @@ export const loginSchema = z.object({
 
 export const firebaseLoginSchema = z.object({
   firebase_token: z.string().min(1, "Firebase token is required"),
+  firebase_uid: z.string().min(1, "Firebase UID is required"),
+  email: z.string().email("Valid email is required"),
+  display_name: z.string().optional(),
 });
 
 export const insertApiKeySchema = createInsertSchema(apiKeys).pick({
