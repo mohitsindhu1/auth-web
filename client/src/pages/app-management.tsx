@@ -459,81 +459,107 @@ export default function AppManagement() {
           {/* Users Tab */}
           <TabsContent value="users" className="space-y-6">
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold">Application Users</h2>
-              <Dialog open={isCreateUserDialogOpen} onOpenChange={setIsCreateUserDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add User
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Create New User</DialogTitle>
-                    <DialogDescription>Add a new user to this application</DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div>
-                      <Label htmlFor="username">Username *</Label>
-                      <Input
-                        id="username"
-                        value={newUserData.username}
-                        onChange={(e) => setNewUserData(prev => ({ ...prev, username: e.target.value }))}
-                        placeholder="Enter username"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Email (Optional)</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={newUserData.email}
-                        onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
-                        placeholder="Enter email (optional)"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="password">Password *</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={newUserData.password}
-                        onChange={(e) => setNewUserData(prev => ({ ...prev, password: e.target.value }))}
-                        placeholder="Enter password"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="expiresAt">Expiration Date (Optional)</Label>
-                      <Input
-                        id="expiresAt"
-                        type="datetime-local"
-                        value={newUserData.expiresAt}
-                        onChange={(e) => setNewUserData(prev => ({ ...prev, expiresAt: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="hwid">Hardware ID (Optional)</Label>
-                      <Input
-                        id="hwid"
-                        value={newUserData.hwid}
-                        onChange={(e) => setNewUserData(prev => ({ ...prev, hwid: e.target.value }))}
-                        placeholder="Enter HWID"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsCreateUserDialogOpen(false)}>
-                      Cancel
+              <div>
+                <h2 className="text-2xl font-bold">Application Users</h2>
+                <p className="text-sm text-muted-foreground">
+                  {appUsers.length} user{appUsers.length !== 1 ? 's' : ''} found
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => refetchUsers()}
+                  disabled={isLoadingUsers}
+                >
+                  {isLoadingUsers ? "Refreshing..." : "Refresh"}
+                </Button>
+                <Dialog open={isCreateUserDialogOpen} onOpenChange={setIsCreateUserDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add User
                     </Button>
-                    <Button onClick={handleCreateUser} disabled={createUserMutation.isPending}>
-                      {createUserMutation.isPending ? "Creating..." : "Create User"}
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New User</DialogTitle>
+                      <DialogDescription>Add a new user to this application</DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div>
+                        <Label htmlFor="username">Username *</Label>
+                        <Input
+                          id="username"
+                          value={newUserData.username}
+                          onChange={(e) => setNewUserData(prev => ({ ...prev, username: e.target.value }))}
+                          placeholder="Enter username"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="email">Email (Optional)</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={newUserData.email}
+                          onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
+                          placeholder="Enter email (optional)"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="password">Password *</Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          value={newUserData.password}
+                          onChange={(e) => setNewUserData(prev => ({ ...prev, password: e.target.value }))}
+                          placeholder="Enter password"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="expiresAt">Expiration Date (Optional)</Label>
+                        <Input
+                          id="expiresAt"
+                          type="datetime-local"
+                          value={newUserData.expiresAt}
+                          onChange={(e) => setNewUserData(prev => ({ ...prev, expiresAt: e.target.value }))}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="hwid">Hardware ID (Optional)</Label>
+                        <Input
+                          id="hwid"
+                          value={newUserData.hwid}
+                          onChange={(e) => setNewUserData(prev => ({ ...prev, hwid: e.target.value }))}
+                          placeholder="Enter HWID"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setIsCreateUserDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleCreateUser} disabled={createUserMutation.isPending}>
+                        {createUserMutation.isPending ? "Creating..." : "Create User"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
 
-            {isLoadingUsers ? (
+            {usersError ? (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <div className="text-destructive mb-4">
+                    <h3 className="text-lg font-semibold mb-2">Error loading users</h3>
+                    <p className="text-sm">{usersError.message}</p>
+                  </div>
+                  <Button onClick={() => refetchUsers()}>
+                    Try Again
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : isLoadingUsers ? (
               <div className="text-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">Loading users...</p>

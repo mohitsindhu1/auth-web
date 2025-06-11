@@ -27,23 +27,18 @@ const hasValidConfig = firebaseConfig.apiKey &&
                       firebaseConfig.projectId !== "demo-project";
 
 const app = initializeApp(firebaseConfig);
-export const auth = hasValidConfig ? getAuth(app) : null;
-export const googleProvider = hasValidConfig ? new GoogleAuthProvider() : null;
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
 
 // Configure Google provider
-if (googleProvider) {
-  googleProvider.addScope('email');
-  googleProvider.addScope('profile');
-  googleProvider.setCustomParameters({
-    prompt: 'select_account'
-  });
-}
+googleProvider.addScope('email');
+googleProvider.addScope('profile');
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
 
 // Firebase authentication functions
 export const signInWithGoogle = async () => {
-  if (!auth || !googleProvider) {
-    throw new Error('Firebase not properly configured');
-  }
   try {
     // Try popup first, fallback to redirect if popup is blocked
     return await signInWithPopup(auth, googleProvider);
@@ -56,31 +51,18 @@ export const signInWithGoogle = async () => {
 };
 
 export const signInWithGoogleRedirect = () => {
-  if (!auth || !googleProvider) {
-    throw new Error('Firebase not properly configured');
-  }
   return signInWithRedirect(auth, googleProvider);
 };
 
 export const handleRedirectResult = () => {
-  if (!auth) {
-    return Promise.resolve(null);
-  }
   return getRedirectResult(auth);
 };
 
 export const signOutUser = () => {
-  if (!auth) {
-    return Promise.resolve();
-  }
   return signOut(auth);
 };
 
 export const onAuthStateChange = (callback: (user: User | null) => void) => {
-  if (!auth) {
-    callback(null);
-    return () => {};
-  }
   return onAuthStateChanged(auth, callback);
 };
 
