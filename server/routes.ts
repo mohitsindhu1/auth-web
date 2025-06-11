@@ -337,6 +337,159 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Firebase Authentication Routes
+  app.post('/api/auth/firebase-login', async (req, res) => {
+    try {
+      const validatedData = firebaseLoginSchema.parse(req.body);
+      
+      // Check if account exists
+      let account = await storage.getAccountByFirebaseUid(validatedData.firebase_uid);
+      
+      if (!account) {
+        // Create new account
+        account = await storage.createAccount({
+          firebaseUid: validatedData.firebase_uid,
+          email: validatedData.email,
+          displayName: validatedData.display_name || validatedData.email,
+          isActive: true
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: "Firebase login successful",
+        account_id: account.id.toString(),
+        email: account.email
+      });
+      
+    } catch (error: any) {
+      res.status(400).json({
+        success: false,
+        message: error.message || "Firebase login failed"
+      });
+    }
+  });
+
+  // Dashboard Stats (per account)
+  app.get('/api/dashboard/stats', async (req, res) => {
+    try {
+      const accountId = req.headers['x-account-id'];
+      
+      if (!accountId) {
+        return res.status(400).json({
+          success: false,
+          message: "Account ID is required"
+        });
+      }
+      
+      const users = await storage.getAllUsers(parseInt(accountId as string));
+      const apiKeys = await storage.getAllApiKeys(parseInt(accountId as string));
+      const activeApiKeys = apiKeys.filter(key => key.isActive);
+      
+      res.json({
+        success: true,
+        totalUsers: users.length,
+        totalApiKeys: apiKeys.length,
+        activeApiKeys: activeApiKeys.length,
+        accountType: 'Gaming Arena'
+      });
+      
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to fetch dashboard stats"
+      });
+    }
+  });
+
+  // Get API keys for specific account
+  app.get('/api/api-keys', async (req, res) => {
+    try {
+      const accountId = req.headers['x-account-id'];
+      
+      if (!accountId) {
+        return res.status(400).json({
+          success: false,
+          message: "Account ID is required"
+        });
+      }
+      
+      const apiKeys = await storage.getAllApiKeys(parseInt(accountId as string));
+      
+      res.json(apiKeys);
+      
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to fetch API keys"
+      });
+    }
+  });
+
+  // Create API key for specific account
+  app.post('/api/api-keys', async (req, res) => {
+    try {
+      const accountId = req.headers['x-account-id'];
+      const { name } = req.body;
+      
+      if (!accountId) {
+        return res.status(400).json({
+          success: false,
+          message: "Account ID is required"
+        });
+      }
+      
+      if (!name) {
+        return res.status(400).json({
+          success: false,
+          message: "API key name is required"
+        });
+      }
+      
+      const apiKey = await storage.createApiKey(parseInt(accountId as string), { name });
+      
+      res.status(201).json(apiKey);
+      
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to create API key"
+      });
+    }
+  });
+
+  // Get users for specific account
+  app.get('/api/users', async (req, res) => {
+    try {
+      const accountId = req.headers['x-account-id'];
+      
+      if (!accountId) {
+        return res.status(400).json({
+          success: false,
+          message: "Account ID is required"
+        });
+      }
+      
+      const users = await storage.getAllUsers(parseInt(accountId as string));
+      const sanitizedUsers = users.map(user => ({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        isActive: user.isActive,
+        createdAt: user.createdAt,
+        lastLogin: user.lastLogin
+      }));
+      
+      res.json(sanitizedUsers);
+      
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: error.message || "Failed to fetch users"
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -19,7 +19,8 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/test-login" component={TestLogin} />
       <Route path="/login" component={FirebaseLogin} />
-      <Route path="/dashboard" component={Admin} />
+      <Route path="/firebase-login" component={FirebaseLogin} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route component={NotFound} />
     </Switch>
   );

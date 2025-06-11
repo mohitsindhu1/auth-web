@@ -65,29 +65,26 @@ export default function Dashboard() {
   }, [setLocation]);
 
   // Fetch dashboard stats
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats = { totalUsers: 0, totalApiKeys: 0, activeApiKeys: 0, accountType: 'Basic' }, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
     enabled: !!accountInfo?.accountId,
   });
 
   // Fetch API keys
-  const { data: apiKeys = [], isLoading: apiKeysLoading, refetch: refetchApiKeys } = useQuery({
+  const { data: apiKeys = [], isLoading: apiKeysLoading, refetch: refetchApiKeys } = useQuery<ApiKey[]>({
     queryKey: ['/api/api-keys'],
     enabled: !!accountInfo?.accountId,
   });
 
   // Fetch users
-  const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery({
+  const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery<User[]>({
     queryKey: ['/api/users'],
     enabled: !!accountInfo?.accountId,
   });
 
   // Create API key mutation
   const createApiKeyMutation = useMutation({
-    mutationFn: (data: { name: string }) => apiRequest('/api/api-keys', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
+    mutationFn: (data: { name: string }) => apiRequest('/api/api-keys', 'POST', data),
     onSuccess: () => {
       toast({
         title: "Success",
@@ -191,7 +188,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Users</p>
                   <p className="text-3xl font-bold text-neon-green">
-                    {statsLoading ? "..." : stats?.totalUsers || 0}
+                    {statsLoading ? "..." : stats.totalUsers}
                   </p>
                 </div>
                 <Users className="h-8 w-8 text-neon-green" />
@@ -205,7 +202,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm text-muted-foreground">API Keys</p>
                   <p className="text-3xl font-bold text-neon-blue">
-                    {statsLoading ? "..." : stats?.totalApiKeys || 0}
+                    {statsLoading ? "..." : stats.totalApiKeys}
                   </p>
                 </div>
                 <Key className="h-8 w-8 text-neon-blue" />
@@ -219,7 +216,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm text-muted-foreground">Active Keys</p>
                   <p className="text-3xl font-bold text-neon-purple">
-                    {statsLoading ? "..." : stats?.activeApiKeys || 0}
+                    {statsLoading ? "..." : stats.activeApiKeys}
                   </p>
                 </div>
                 <Shield className="h-8 w-8 text-neon-purple" />
