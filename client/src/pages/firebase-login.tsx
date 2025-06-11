@@ -98,9 +98,9 @@ export default function FirebaseLogin() {
         localStorage.setItem('account_email', firebaseUser.email);
         localStorage.setItem('firebase_uid', firebaseUser.uid);
         
-        // Wait a moment for the toast to show, then redirect
+        // Wait a moment for the toast to show, then redirect to home which will handle authentication
         setTimeout(() => {
-          setLocation('/dashboard');
+          setLocation('/');
         }, 1500);
       } else {
         toast({

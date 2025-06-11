@@ -8,8 +8,8 @@ if (typeof window === 'undefined') {
   neonConfig.webSocketConstructor = ws;
 }
 
-// Use the new PostgreSQL database from environment variables
-const databaseUrl = process.env.DATABASE_URL || "postgresql://neondb_owner:npg_ZNHf7uDlkF4S@ep-bitter-truth-a8glqli4-pooler.eastus2.azure.neon.tech/neondb?sslmode=require";
+// Use the specified PostgreSQL database
+const databaseUrl = "postgresql://neondb_owner:npg_ZNHf7uDlkF4S@ep-bitter-truth-a8glqli4-pooler.eastus2.azure.neon.tech/neondb?sslmode=require";
 
 console.log('Connecting to database...');
 

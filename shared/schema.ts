@@ -166,6 +166,10 @@ export const insertAppUserSchema = createInsertSchema(appUsers).pick({
   email: true,
   expiresAt: true,
   hwid: true,
+}).extend({
+  email: z.string().email().optional().nullable(),
+  expiresAt: z.string().optional().nullable(),
+  hwid: z.string().optional().nullable(),
 });
 
 export const updateApplicationSchema = createInsertSchema(applications).pick({

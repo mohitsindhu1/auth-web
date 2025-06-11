@@ -309,6 +309,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertAppUserSchema.parse(req.body);
       
+      // Process date conversion for expiresAt
+      const processedData: any = { ...validatedData };
+      if (processedData.expiresAt && typeof processedData.expiresAt === 'string') {
+        processedData.expiresAt = new Date(processedData.expiresAt);
+      }
+      
       // Check for existing username/email in this application
       const existingUser = await storage.getAppUserByUsername(applicationId, validatedData.username);
       if (existingUser) {
@@ -322,7 +328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const user = await storage.createAppUser(applicationId, validatedData);
+      const user = await storage.createAppUser(applicationId, processedData);
       res.status(201).json(user);
     } catch (error) {
       if (error instanceof z.ZodError) {
