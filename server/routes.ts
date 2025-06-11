@@ -729,6 +729,166 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Webhook routes
+  app.get('/api/webhooks', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const webhooks = await storage.getUserWebhooks(userId);
+      res.json(webhooks);
+    } catch (error) {
+      console.error("Error fetching webhooks:", error);
+      res.status(500).json({ message: "Failed to fetch webhooks" });
+    }
+  });
+
+  app.post('/api/webhooks', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertWebhookSchema.parse(req.body);
+      const webhook = await storage.createWebhook(userId, validatedData);
+      res.status(201).json(webhook);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error creating webhook:", error);
+      res.status(500).json({ message: "Failed to create webhook" });
+    }
+  });
+
+  app.put('/api/webhooks/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const webhookId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      const validatedData = insertWebhookSchema.partial().parse(req.body);
+      
+      // Check ownership
+      const webhooks = await storage.getUserWebhooks(userId);
+      const webhook = webhooks.find(w => w.id === webhookId);
+      
+      if (!webhook) {
+        return res.status(404).json({ message: "Webhook not found" });
+      }
+
+      const updatedWebhook = await storage.updateWebhook(webhookId, validatedData);
+      if (!updatedWebhook) {
+        return res.status(404).json({ message: "Webhook not found" });
+      }
+
+      res.json(updatedWebhook);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error updating webhook:", error);
+      res.status(500).json({ message: "Failed to update webhook" });
+    }
+  });
+
+  app.delete('/api/webhooks/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const webhookId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      // Check ownership
+      const webhooks = await storage.getUserWebhooks(userId);
+      const webhook = webhooks.find(w => w.id === webhookId);
+      
+      if (!webhook) {
+        return res.status(404).json({ message: "Webhook not found" });
+      }
+
+      const deleted = await storage.deleteWebhook(webhookId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Webhook not found" });
+      }
+
+      res.json({ message: "Webhook deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting webhook:", error);
+      res.status(500).json({ message: "Failed to delete webhook" });
+    }
+  });
+
+  // Blacklist routes
+  app.get('/api/blacklist', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const applications = await storage.getAllApplications(userId);
+      
+      // Get blacklist entries for all user's applications plus global entries
+      const applicationIds = applications.map(app => app.id);
+      const blacklistEntries = await storage.getBlacklistEntries();
+      
+      // Filter to show only entries that belong to user's applications or are global
+      const filteredEntries = blacklistEntries.filter(entry => 
+        !entry.applicationId || applicationIds.includes(entry.applicationId)
+      );
+
+      res.json(filteredEntries);
+    } catch (error) {
+      console.error("Error fetching blacklist:", error);
+      res.status(500).json({ message: "Failed to fetch blacklist" });
+    }
+  });
+
+  app.post('/api/blacklist', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertBlacklistSchema.parse(req.body);
+      
+      // If applicationId is provided, verify user owns that application
+      if (validatedData.applicationId) {
+        const application = await storage.getApplication(validatedData.applicationId);
+        if (!application || application.userId !== userId) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+
+      const blacklistEntry = await storage.createBlacklistEntry(validatedData);
+      res.status(201).json(blacklistEntry);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error creating blacklist entry:", error);
+      res.status(500).json({ message: "Failed to create blacklist entry" });
+    }
+  });
+
+  app.delete('/api/blacklist/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const entryId = parseInt(req.params.id);
+      const userId = req.user.claims.sub;
+      
+      // Get the blacklist entry and verify ownership
+      const blacklistEntries = await storage.getBlacklistEntries();
+      const entry = blacklistEntries.find(e => e.id === entryId);
+      
+      if (!entry) {
+        return res.status(404).json({ message: "Blacklist entry not found" });
+      }
+
+      // Check if user owns the application (if it's not a global entry)
+      if (entry.applicationId) {
+        const application = await storage.getApplication(entry.applicationId);
+        if (!application || application.userId !== userId) {
+          return res.status(403).json({ message: "Access denied" });
+        }
+      }
+
+      const deleted = await storage.deleteBlacklistEntry(entryId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Blacklist entry not found" });
+      }
+
+      res.json({ message: "Blacklist entry deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting blacklist entry:", error);
+      res.status(500).json({ message: "Failed to delete blacklist entry" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

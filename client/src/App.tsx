@@ -9,6 +9,8 @@ import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
 import AppManagement from "@/pages/app-management";
 import Documentation from "@/pages/documentation";
+import Webhooks from "@/pages/webhooks";
+import Blacklist from "@/pages/blacklist";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -35,6 +37,8 @@ function Router() {
           <Route path="/" component={Home} />
           <Route path="/dashboard" component={Dashboard} />
           <Route path="/app/:id" component={AppManagement} />
+          <Route path="/webhooks" component={Webhooks} />
+          <Route path="/blacklist" component={Blacklist} />
           <Route path="/docs" component={Documentation} />
         </>
       )}
