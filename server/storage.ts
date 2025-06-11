@@ -127,6 +127,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAppUserByEmail(applicationId: number, email: string): Promise<AppUser | undefined> {
+    if (!email) return undefined;
     const [user] = await db
       .select()
       .from(appUsers)

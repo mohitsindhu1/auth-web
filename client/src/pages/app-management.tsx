@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Plus, Settings, Users, Key, Trash2, Edit, Eye, EyeOff, Copy, Play, Pause } from "lucide-react";
+import { ArrowLeft, Plus, Settings, Users, Key, Trash2, Edit, Eye, EyeOff, Copy, Play, Pause, RotateCcw, HardDrive } from "lucide-react";
 import Header from "@/components/header";
 
 interface Application {
@@ -190,11 +190,32 @@ export default function AppManagement() {
     },
   });
 
-  const handleCreateUser = async () => {
-    if (!newUserData.username.trim() || !newUserData.email.trim() || !newUserData.password.trim()) {
+  // Reset HWID mutation
+  const resetHwidMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      return apiRequest(`/api/applications/${appId}/users/${userId}/reset-hwid`, "POST");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/applications", appId, "users"] });
+      toast({
+        title: "Success",
+        description: "HWID reset successfully",
+      });
+    },
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Please fill in username, email, and password",
+        description: error.message || "Failed to reset HWID",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateUser = async () => {
+    if (!newUserData.username.trim() || !newUserData.password.trim()) {
+      toast({
+        title: "Error",
+        description: "Please fill in username and password",
         variant: "destructive"
       });
       return;
@@ -439,13 +460,13 @@ export default function AppManagement() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="email">Email *</Label>
+                      <Label htmlFor="email">Email (Optional)</Label>
                       <Input
                         id="email"
                         type="email"
                         value={newUserData.email}
                         onChange={(e) => setNewUserData(prev => ({ ...prev, email: e.target.value }))}
-                        placeholder="Enter email"
+                        placeholder="Enter email (optional)"
                       />
                     </div>
                     <div>
@@ -515,6 +536,7 @@ export default function AppManagement() {
                         <TableHead>Username</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>HWID</TableHead>
                         <TableHead>Last Login</TableHead>
                         <TableHead>Expires</TableHead>
                         <TableHead>Actions</TableHead>
@@ -524,7 +546,7 @@ export default function AppManagement() {
                       {appUsers.map((user) => (
                         <TableRow key={user.id}>
                           <TableCell className="font-medium">{user.username}</TableCell>
-                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{user.email || "Not provided"}</TableCell>
                           <TableCell>
                             <div className="flex gap-1">
                               <Badge variant={user.isActive ? "default" : "secondary"}>
@@ -532,6 +554,29 @@ export default function AppManagement() {
                               </Badge>
                               {user.isPaused && (
                                 <Badge variant="outline">Paused</Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {user.hwid ? (
+                                <>
+                                  <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                                    {user.hwid.substring(0, 8)}...
+                                  </span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => copyToClipboard(user.hwid!)}
+                                    title="Copy HWID"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">
+                                  {application?.hwidLockEnabled ? "Will be set on first login" : "Not required"}
+                                </span>
                               )}
                             </div>
                           </TableCell>
@@ -555,12 +600,37 @@ export default function AppManagement() {
                                   action: user.isPaused ? 'unpause' : 'pause'
                                 })}
                                 disabled={toggleUserMutation.isPending}
+                                title={user.isPaused ? "Unpause User" : "Pause User"}
                               >
                                 {user.isPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
                               </Button>
+                              {user.hwid && (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" title="Reset HWID">
+                                      <RotateCcw className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Reset Hardware ID</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to reset the HWID for user "{user.username}"? 
+                                        The user will be able to login from a different device on their next login.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => resetHwidMutation.mutate(user.id)}>
+                                        Reset HWID
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="sm">
+                                  <Button variant="ghost" size="sm" title="Delete User">
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </AlertDialogTrigger>
