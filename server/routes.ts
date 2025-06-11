@@ -1,8 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, loginSchema } from "@shared/schema";
+import { insertUserSchema, loginSchema, insertAccountSchema, firebaseLoginSchema } from "@shared/schema";
 import rateLimit from "express-rate-limit";
+import { initializeApp, cert } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 
 // Rate limiting middleware
 const authLimiter = rateLimit({

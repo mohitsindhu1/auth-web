@@ -7,6 +7,7 @@ import Home from "@/pages/home";
 import Admin from "@/pages/admin";
 import Register from "@/pages/register";
 import TestLogin from "@/pages/test-login";
+import FirebaseLogin from "@/pages/firebase-login";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -16,6 +17,8 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/register" component={Register} />
       <Route path="/test-login" component={TestLogin} />
+      <Route path="/login" component={FirebaseLogin} />
+      <Route path="/dashboard" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );
