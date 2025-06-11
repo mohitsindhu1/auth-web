@@ -49,6 +49,18 @@ interface AppUser {
   lastLoginAttempt?: string;
 }
 
+interface AppStats {
+  totalUsers: number;
+  activeUsers: number;
+  registeredUsers: number;
+  activeSessions: number;
+  loginSuccessRate: number;
+  totalApiRequests: number;
+  lastActivity: string | null;
+  applicationStatus: 'online' | 'offline';
+  hwidLockEnabled: boolean;
+}
+
 export default function AppManagement() {
   const [, params] = useRoute("/app/:id");
   const [, setLocation] = useLocation();
@@ -104,6 +116,13 @@ export default function AppManagement() {
     refetchOnMount: true,
     refetchOnWindowFocus: true,
     retry: 2,
+  });
+
+  // Fetch real-time application statistics
+  const { data: appStats, isLoading: isLoadingStats } = useQuery<AppStats>({
+    queryKey: ["/api/applications", appId, "stats"],
+    enabled: !!appId,
+    refetchInterval: 5000, // Refresh every 5 seconds for real-time data
   });
 
   // Update edit form when application data loads and reset form when dialog opens
@@ -521,39 +540,49 @@ export default function AppManagement() {
                 <CardContent className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">Status</Label>
-                    <Badge variant={application.isActive === true ? "default" : "secondary"}>
-                      {application.isActive === true ? "Active" : "Inactive"}
+                    <Badge variant={appStats?.applicationStatus === 'online' ? "default" : "secondary"}>
+                      {appStats?.applicationStatus === 'online' ? "Online" : application.isActive ? "Active" : "Inactive"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">HWID Lock</Label>
-                    <Badge variant={application.hwidLockEnabled === true ? "default" : "secondary"}>
-                      {application.hwidLockEnabled === true ? "Enabled" : "Disabled"}
+                    <Badge variant={appStats?.hwidLockEnabled === true ? "default" : "secondary"}>
+                      {appStats?.hwidLockEnabled === true ? "Enabled" : "Disabled"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">User Count</Label>
-                    <span className="text-sm font-medium">{appUsers.length}</span>
+                    <span className="text-sm font-medium">{appStats?.totalUsers || appUsers.length}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">Active Users</Label>
-                    <span className="text-sm font-medium">{appUsers.filter(u => u.isActive && !u.isPaused).length}</span>
+                    <span className="text-sm font-medium">{appStats?.activeUsers || 0}</span>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Statistics</CardTitle>
+                  <CardTitle>Real-time Statistics</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <div>
-                    <Label className="text-sm font-medium">Total Users</Label>
-                    <p className="text-2xl font-bold">{appUsers.length}</p>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Live Sessions</Label>
+                    <p className="text-lg font-bold text-green-600">{appStats?.activeSessions || 0}</p>
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium">Active Users</Label>
-                    <p className="text-2xl font-bold">{appUsers.filter(u => u.isActive && !u.isPaused).length}</p>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">API Requests</Label>
+                    <p className="text-lg font-bold">{appStats?.totalApiRequests || 0}</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Success Rate</Label>
+                    <p className="text-lg font-bold text-blue-600">{appStats?.loginSuccessRate || 0}%</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Last Activity</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {appStats?.lastActivity ? new Date(appStats.lastActivity).toLocaleString() : "No recent activity"}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
