@@ -80,10 +80,12 @@ export default function AppManagement() {
   });
 
   // Fetch application users
-  const { data: appUsers = [], isLoading: isLoadingUsers, refetch: refetchUsers } = useQuery<AppUser[]>({
+  const { data: appUsers = [], isLoading: isLoadingUsers, refetch: refetchUsers, error: usersError } = useQuery<AppUser[]>({
     queryKey: ["/api/applications", appId, "users"],
-    enabled: !!appId,
+    enabled: !!appId && !!application,
     staleTime: 0, // Always refetch
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   // Update edit form when application data loads
@@ -93,6 +95,15 @@ export default function AppManagement() {
     }
   }, [application]);
 
+  // Debug logging
+  useEffect(() => {
+    console.log("App ID:", appId);
+    console.log("Application:", application);
+    console.log("App Users:", appUsers);
+    console.log("Loading Users:", isLoadingUsers);
+    console.log("Users Error:", usersError);
+  }, [appId, application, appUsers, isLoadingUsers, usersError]);
+
   // Create user mutation
   const createUserMutation = useMutation({
     mutationFn: async (data: typeof newUserData) => {
@@ -100,19 +111,24 @@ export default function AppManagement() {
       
       const payload = {
         username: data.username,
-        email: data.email,
+        email: data.email || null,
         password: data.password,
         ...(data.expiresAt && { expiresAt: new Date(data.expiresAt).toISOString() }),
         ...(data.hwid && { hwid: data.hwid })
       };
 
+      console.log("Creating user with payload:", payload);
       return apiRequest(`/api/applications/${appId}/users`, "POST", payload);
     },
-    onSuccess: () => {
+    onSuccess: (newUser) => {
+      console.log("User created successfully:", newUser);
+      // Force immediate refetch
+      refetchUsers();
+      // Invalidate cache
       queryClient.invalidateQueries({ queryKey: ["/api/applications", appId, "users"] });
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
-      refetchUsers(); // Force immediate refetch
+      
       setNewUserData({ username: "", email: "", password: "", expiresAt: "", hwid: "" });
       setIsCreateUserDialogOpen(false);
       toast({
@@ -121,6 +137,7 @@ export default function AppManagement() {
       });
     },
     onError: (error: any) => {
+      console.error("Error creating user:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create user",
