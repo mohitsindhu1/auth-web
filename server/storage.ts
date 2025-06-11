@@ -1,6 +1,6 @@
-import { users, apiKeys, authSessions, type User, type InsertUser, type ApiKey, type InsertApiKey, type AuthSession } from "@shared/schema";
+import { accounts, users, apiKeys, authSessions, type Account, type InsertAccount, type User, type InsertUser, type ApiKey, type InsertApiKey, type AuthSession } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { nanoid } from "nanoid";
 

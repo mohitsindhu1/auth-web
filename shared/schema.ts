@@ -1,19 +1,36 @@
-import { pgTable, text, serial, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
+export const accounts = pgTable("accounts", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  firebaseUid: text("firebase_uid").notNull().unique(),
   email: text("email").notNull().unique(),
+  displayName: text("display_name"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastLogin: timestamp("last_login"),
 });
 
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  accountId: serial("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  username: text("username").notNull(),
+  password: text("password").notNull(),
+  email: text("email").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastLogin: timestamp("last_login"),
+}, (table) => {
+  return {
+    uniqueUsernamePerAccount: index("unique_username_per_account").on(table.accountId, table.username),
+    uniqueEmailPerAccount: index("unique_email_per_account").on(table.accountId, table.email),
+  };
+});
+
 export const apiKeys = pgTable("api_keys", {
   id: serial("id").primaryKey(),
+  accountId: serial("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
   key: text("key").notNull().unique(),
   name: text("name").notNull(),
   isActive: boolean("is_active").notNull().default(true),
@@ -28,6 +45,12 @@ export const authSessions = pgTable("auth_sessions", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const insertAccountSchema = createInsertSchema(accounts).pick({
+  firebaseUid: true,
+  email: true,
+  displayName: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
   password: true,
@@ -40,13 +63,20 @@ export const loginSchema = z.object({
   api_key: z.string().min(1, "API key is required"),
 });
 
+export const firebaseLoginSchema = z.object({
+  firebase_token: z.string().min(1, "Firebase token is required"),
+});
+
 export const insertApiKeySchema = createInsertSchema(apiKeys).pick({
   name: true,
 });
 
+export type InsertAccount = z.infer<typeof insertAccountSchema>;
+export type Account = typeof accounts.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type LoginRequest = z.infer<typeof loginSchema>;
+export type FirebaseLoginRequest = z.infer<typeof firebaseLoginSchema>;
 export type ApiKey = typeof apiKeys.$inferSelect;
 export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
 export type AuthSession = typeof authSessions.$inferSelect;
