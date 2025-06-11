@@ -2,12 +2,15 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { webhookService } from "./webhookService";
 import { 
   insertApplicationSchema, 
   insertAppUserSchema, 
   updateApplicationSchema,
   updateAppUserSchema,
-  loginSchema 
+  loginSchema,
+  insertWebhookSchema,
+  insertBlacklistSchema
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -484,15 +487,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Enhanced Login via API with version checking, HWID locking, and custom messages
+  // Enhanced Login via API with version checking, HWID locking, blacklist checking, and webhook notifications
   app.post('/api/v1/login', validateApiKey, async (req: any, res) => {
     try {
       const application = req.application;
       const validatedData = loginSchema.parse(req.body);
       const { username, password, version, hwid } = validatedData;
+      
+      // Get client info
+      const ipAddress = req.ip || req.connection.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      // Check blacklist - IP address
+      if (ipAddress) {
+        const ipBlacklist = await storage.checkBlacklist(application.id, 'ip', ipAddress);
+        if (ipBlacklist) {
+          await webhookService.logAndNotify(
+            application.userId,
+            application.id,
+            'login_blocked_ip',
+            { username },
+            { 
+              success: false, 
+              errorMessage: `Login blocked: IP ${ipAddress} is blacklisted - ${ipBlacklist.reason || 'No reason provided'}`,
+              ipAddress,
+              userAgent,
+              hwid
+            }
+          );
+          
+          return res.status(403).json({ 
+            success: false, 
+            message: "Access denied: IP address is blacklisted"
+          });
+        }
+      }
+
+      // Check blacklist - Username
+      const usernameBlacklist = await storage.checkBlacklist(application.id, 'username', username);
+      if (usernameBlacklist) {
+        await webhookService.logAndNotify(
+          application.userId,
+          application.id,
+          'login_blocked_username',
+          { username },
+          { 
+            success: false, 
+            errorMessage: `Login blocked: Username ${username} is blacklisted - ${usernameBlacklist.reason || 'No reason provided'}`,
+            ipAddress,
+            userAgent,
+            hwid
+          }
+        );
+        
+        return res.status(403).json({ 
+          success: false, 
+          message: "Access denied: Username is blacklisted"
+        });
+      }
+
+      // Check blacklist - HWID
+      if (hwid) {
+        const hwidBlacklist = await storage.checkBlacklist(application.id, 'hwid', hwid);
+        if (hwidBlacklist) {
+          await webhookService.logAndNotify(
+            application.userId,
+            application.id,
+            'login_blocked_hwid',
+            { username },
+            { 
+              success: false, 
+              errorMessage: `Login blocked: HWID ${hwid} is blacklisted - ${hwidBlacklist.reason || 'No reason provided'}`,
+              ipAddress,
+              userAgent,
+              hwid
+            }
+          );
+          
+          return res.status(403).json({ 
+            success: false, 
+            message: "Access denied: Hardware ID is blacklisted"
+          });
+        }
+      }
 
       // Check application version if provided
       if (version && version !== application.version) {
+        await webhookService.logAndNotify(
+          application.userId,
+          application.id,
+          'login_version_mismatch',
+          { username },
+          { 
+            success: false, 
+            errorMessage: `Version mismatch: Required ${application.version}, provided ${version}`,
+            ipAddress,
+            userAgent,
+            hwid,
+            metadata: { required_version: application.version, current_version: version }
+          }
+        );
+        
         return res.status(400).json({ 
           success: false, 
           message: application.versionMismatchMessage || "Please update your application to the latest version!",
