@@ -720,6 +720,7 @@ public partial class LoginForm : Form
               <Shield className="h-4 w-4" />
               <AlertDescription>
                 <strong>Base URL:</strong> {window.location.origin}/api/v1<br />
+                <strong>Database:</strong> PostgreSQL (Neon) - Permanently configured<br />
                 <strong>Authentication:</strong> Include your API key in the X-API-Key header
               </AlertDescription>
             </Alert>
