@@ -204,7 +204,6 @@ export const updateAppUserSchema = createInsertSchema(appUsers).pick({
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
-  api_key: z.string().min(1, "API key is required"),
   version: z.string().optional(),
   hwid: z.string().optional(),
 });

@@ -80,9 +80,11 @@ export default function AppManagement() {
   });
 
   // Fetch application users
-  const { data: appUsers = [], isLoading: isLoadingUsers } = useQuery<AppUser[]>({
+  const { data: appUsers = [], isLoading: isLoadingUsers, refetch: refetchUsers } = useQuery<AppUser[]>({
     queryKey: ["/api/applications", appId, "users"],
     enabled: !!appId,
+    staleTime: 0, // Always refetch
+    gcTime: 0, // Don't cache (gcTime replaces cacheTime in newer versions)
   });
 
   // Update edit form when application data loads
@@ -109,6 +111,9 @@ export default function AppManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", appId, "users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      refetchUsers(); // Force immediate refetch
       setNewUserData({ username: "", email: "", password: "", expiresAt: "", hwid: "" });
       setIsCreateUserDialogOpen(false);
       toast({
@@ -155,6 +160,8 @@ export default function AppManagement() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", appId, "users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       toast({
         title: "Success",
         description: "User deleted successfully",

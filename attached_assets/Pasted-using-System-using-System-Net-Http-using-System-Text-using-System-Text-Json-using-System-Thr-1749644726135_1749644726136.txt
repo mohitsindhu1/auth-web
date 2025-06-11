@@ -1,0 +1,92 @@
+using System;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
+
+public class AuthApiClient
+{
+    private readonly HttpClient _httpClient;
+    private readonly string _apiKey;
+    private readonly string _baseUrl;
+
+    public AuthApiClient(string apiKey, string baseUrl = "https://c589388b-fe32-4120-926a-8bebb4f96130-00-1s4a1pbl4ob18.sisko.replit.dev")
+    {
+        _httpClient = new HttpClient();
+        _apiKey = apiKey;
+        _baseUrl = baseUrl;
+        _httpClient.DefaultRequestHeaders.Add("X-API-Key", _apiKey);
+    }
+
+    public async Task<AuthResponse> LoginAsync(string username, string password, string version = null, string hwid = null)
+    {
+        var loginData = new
+        {
+            username,
+            password,
+            version,
+            hwid
+        };
+
+        var json = JsonSerializer.Serialize(loginData);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"{_baseUrl}/api/v1/login", content);
+        var responseJson = await response.Content.ReadAsStringAsync();
+
+        return JsonSerializer.Deserialize<AuthResponse>(responseJson, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+    }
+
+    public async Task<AuthResponse> RegisterAsync(string username, string password, string email = null, DateTime? expiresAt = null)
+    {
+        var registerData = new
+        {
+            username,
+            password,
+            email,
+            expiresAt = expiresAt?.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+        };
+
+        var json = JsonSerializer.Serialize(registerData);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"{_baseUrl}/api/v1/register", content);
+        var responseJson = await response.Content.ReadAsStringAsync();
+
+        return JsonSerializer.Deserialize<AuthResponse>(responseJson, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+    }
+
+    public async Task<AuthResponse> VerifyAsync(int userId)
+    {
+        var verifyData = new { user_id = userId };
+        var json = JsonSerializer.Serialize(verifyData);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"{_baseUrl}/api/v1/verify", content);
+        var responseJson = await response.Content.ReadAsStringAsync();
+
+        return JsonSerializer.Deserialize<AuthResponse>(responseJson, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+    }
+}
+
+public class AuthResponse
+{
+    public bool Success { get; set; }
+    public string Message { get; set; }
+    public int? UserId { get; set; }
+    public string Username { get; set; }
+    public string Email { get; set; }
+    public DateTime? ExpiresAt { get; set; }
+    public bool? HwidLocked { get; set; }
+    public string RequiredVersion { get; set; }
+    public string CurrentVersion { get; set; }
+}
