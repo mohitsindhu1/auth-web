@@ -622,9 +622,30 @@ export default function Dashboard() {
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                onClick={() => {
+                                  setEditingApp(app);
+                                  setIsEditAppDialogOpen(true);
+                                }}
+                                title="Edit Application"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setSelectedApp(app)}
+                                title="Manage Users"
                               >
                                 <Users className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteApplicationMutation.mutate(app.id)}
+                                className="text-red-600 hover:text-red-700"
+                                title="Delete Application"
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </TableCell>
@@ -713,6 +734,18 @@ export default function Dashboard() {
                             className="col-span-3"
                           />
                         </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="hwid" className="text-right">
+                            Hardware ID
+                          </Label>
+                          <Input
+                            id="hwid"
+                            value={newUserData.hwid}
+                            onChange={(e) => setNewUserData({...newUserData, hwid: e.target.value})}
+                            className="col-span-3"
+                            placeholder="Optional - will be set on first login if HWID lock enabled"
+                          />
+                        </div>
                       </div>
                       <DialogFooter>
                         <Button 
@@ -754,9 +787,11 @@ export default function Dashboard() {
                         <TableHead>Username</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Status</TableHead>
+                        <TableHead>HWID Lock</TableHead>
+                        <TableHead>Login Attempts</TableHead>
                         <TableHead>Expires</TableHead>
                         <TableHead>Last Login</TableHead>
-                        <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -767,9 +802,43 @@ export default function Dashboard() {
                             <TableCell className="font-medium">{user.username}</TableCell>
                             <TableCell>{user.email}</TableCell>
                             <TableCell>
-                              <Badge variant={user.isActive && !isExpired ? "default" : "secondary"}>
-                                {isExpired ? "Expired" : user.isActive ? "Active" : "Inactive"}
-                              </Badge>
+                              <div className="flex items-center space-x-2">
+                                <Badge 
+                                  variant={user.isActive && !isExpired && !user.isPaused ? "default" : "secondary"}
+                                  className={isExpired ? "text-red-600" : user.isPaused ? "text-orange-600" : ""}
+                                >
+                                  {isExpired ? "Expired" : user.isPaused ? "Paused" : user.isActive ? "Active" : "Inactive"}
+                                </Badge>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                {selectedApp?.hwidLockEnabled ? (
+                                  user.hwid ? (
+                                    <Badge variant="default" className="text-xs">
+                                      <Lock className="h-3 w-3 mr-1" />
+                                      Locked
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="text-xs">
+                                      <Unlock className="h-3 w-3 mr-1" />
+                                      Not Set
+                                    </Badge>
+                                  )
+                                ) : (
+                                  <Badge variant="outline" className="text-xs">
+                                    Disabled
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-1">
+                                <span className={user.loginAttempts > 5 ? "text-red-600 font-medium" : ""}>{user.loginAttempts}</span>
+                                {user.loginAttempts > 0 && (
+                                  <AlertTriangle className="h-3 w-3 text-yellow-500" />
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               {user.expiresAt ? (
@@ -788,7 +857,49 @@ export default function Dashboard() {
                               }
                             </TableCell>
                             <TableCell>
-                              {formatDate(user.createdAt)}
+                              <div className="flex items-center space-x-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setEditingUser(user);
+                                    setIsEditUserDialogOpen(true);
+                                  }}
+                                  title="Edit User"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                {user.isPaused ? (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => unpauseUserMutation.mutate({ appId: selectedApp.id, userId: user.id })}
+                                    title="Unpause User"
+                                    className="text-green-600 hover:text-green-700"
+                                  >
+                                    <Play className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => pauseUserMutation.mutate({ appId: selectedApp.id, userId: user.id })}
+                                    title="Pause User"
+                                    className="text-orange-600 hover:text-orange-700"
+                                  >
+                                    <Pause className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteUserMutation.mutate({ appId: selectedApp.id, userId: user.id })}
+                                  title="Delete User"
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -800,6 +911,314 @@ export default function Dashboard() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Edit Application Dialog */}
+        <Dialog open={isEditAppDialogOpen} onOpenChange={setIsEditAppDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Application - {editingApp?.name}</DialogTitle>
+              <DialogDescription>
+                Configure application settings, version control, HWID locking, and custom messages.
+              </DialogDescription>
+            </DialogHeader>
+            {editingApp && (
+              <div className="grid gap-6 py-4">
+                <Tabs defaultValue="basic" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="basic">Basic Settings</TabsTrigger>
+                    <TabsTrigger value="security">Security & HWID</TabsTrigger>
+                    <TabsTrigger value="messages">Custom Messages</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="basic" className="space-y-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="edit-name" className="text-right">Name</Label>
+                      <Input
+                        id="edit-name"
+                        defaultValue={editingApp.name}
+                        className="col-span-3"
+                        onChange={(e) => setEditingApp({...editingApp, name: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="edit-description" className="text-right">Description</Label>
+                      <Textarea
+                        id="edit-description"
+                        defaultValue={editingApp.description || ""}
+                        className="col-span-3"
+                        onChange={(e) => setEditingApp({...editingApp, description: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="edit-version" className="text-right">
+                        <GitBranch className="h-4 w-4 mr-1 inline" />
+                        Version
+                      </Label>
+                      <Input
+                        id="edit-version"
+                        defaultValue={editingApp.version}
+                        placeholder="1.0.0"
+                        className="col-span-3"
+                        onChange={(e) => setEditingApp({...editingApp, version: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="edit-active" className="text-right">Active Status</Label>
+                      <div className="col-span-3 flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="edit-active"
+                          checked={editingApp.isActive}
+                          onChange={(e) => setEditingApp({...editingApp, isActive: e.target.checked})}
+                          className="h-4 w-4"
+                        />
+                        <Label htmlFor="edit-active" className="text-sm">Application is active</Label>
+                      </div>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="security" className="space-y-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="edit-hwid-lock" className="text-right">
+                        <HardDrive className="h-4 w-4 mr-1 inline" />
+                        HWID Lock
+                      </Label>
+                      <div className="col-span-3 flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="edit-hwid-lock"
+                          checked={editingApp.hwidLockEnabled}
+                          onChange={(e) => setEditingApp({...editingApp, hwidLockEnabled: e.target.checked})}
+                          className="h-4 w-4"
+                        />
+                        <Label htmlFor="edit-hwid-lock" className="text-sm">Enable Hardware ID locking</Label>
+                      </div>
+                    </div>
+                    <div className="col-span-4 p-4 bg-muted rounded-lg">
+                      <p className="text-sm text-muted-foreground">
+                        When HWID lock is enabled, users will be locked to their first login device. 
+                        This prevents account sharing and unauthorized access from different machines.
+                      </p>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="messages" className="space-y-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="edit-success-msg" className="text-right">
+                        <CheckCircle className="h-4 w-4 mr-1 inline text-green-600" />
+                        Login Success
+                      </Label>
+                      <Input
+                        id="edit-success-msg"
+                        defaultValue={editingApp.loginSuccessMessage}
+                        placeholder="Login successful!"
+                        className="col-span-3"
+                        onChange={(e) => setEditingApp({...editingApp, loginSuccessMessage: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="edit-failed-msg" className="text-right">
+                        <XCircle className="h-4 w-4 mr-1 inline text-red-600" />
+                        Login Failed
+                      </Label>
+                      <Input
+                        id="edit-failed-msg"
+                        defaultValue={editingApp.loginFailedMessage}
+                        placeholder="Invalid credentials!"
+                        className="col-span-3"
+                        onChange={(e) => setEditingApp({...editingApp, loginFailedMessage: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="edit-disabled-msg" className="text-right">
+                        <AlertTriangle className="h-4 w-4 mr-1 inline text-orange-600" />
+                        Account Disabled
+                      </Label>
+                      <Input
+                        id="edit-disabled-msg"
+                        defaultValue={editingApp.accountDisabledMessage}
+                        placeholder="Account is disabled!"
+                        className="col-span-3"
+                        onChange={(e) => setEditingApp({...editingApp, accountDisabledMessage: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="edit-expired-msg" className="text-right">
+                        <Calendar className="h-4 w-4 mr-1 inline text-red-600" />
+                        Account Expired
+                      </Label>
+                      <Input
+                        id="edit-expired-msg"
+                        defaultValue={editingApp.accountExpiredMessage}
+                        placeholder="Account has expired!"
+                        className="col-span-3"
+                        onChange={(e) => setEditingApp({...editingApp, accountExpiredMessage: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="edit-version-msg" className="text-right">
+                        <GitBranch className="h-4 w-4 mr-1 inline text-blue-600" />
+                        Version Mismatch
+                      </Label>
+                      <Input
+                        id="edit-version-msg"
+                        defaultValue={editingApp.versionMismatchMessage}
+                        placeholder="Please update your application!"
+                        className="col-span-3"
+                        onChange={(e) => setEditingApp({...editingApp, versionMismatchMessage: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="edit-hwid-msg" className="text-right">
+                        <HardDrive className="h-4 w-4 mr-1 inline text-purple-600" />
+                        HWID Mismatch
+                      </Label>
+                      <Input
+                        id="edit-hwid-msg"
+                        defaultValue={editingApp.hwidMismatchMessage}
+                        placeholder="Hardware ID mismatch detected!"
+                        className="col-span-3"
+                        onChange={(e) => setEditingApp({...editingApp, hwidMismatchMessage: e.target.value})}
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            )}
+            <DialogFooter>
+              <Button 
+                onClick={() => {
+                  if (editingApp) {
+                    updateApplicationMutation.mutate({ 
+                      id: editingApp.id, 
+                      updates: {
+                        name: editingApp.name,
+                        description: editingApp.description,
+                        version: editingApp.version,
+                        isActive: editingApp.isActive,
+                        hwidLockEnabled: editingApp.hwidLockEnabled,
+                        loginSuccessMessage: editingApp.loginSuccessMessage,
+                        loginFailedMessage: editingApp.loginFailedMessage,
+                        accountDisabledMessage: editingApp.accountDisabledMessage,
+                        accountExpiredMessage: editingApp.accountExpiredMessage,
+                        versionMismatchMessage: editingApp.versionMismatchMessage,
+                        hwidMismatchMessage: editingApp.hwidMismatchMessage
+                      }
+                    });
+                  }
+                }}
+                className="phantom-button"
+                disabled={updateApplicationMutation.isPending}
+              >
+                {updateApplicationMutation.isPending ? "Updating..." : "Update Application"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit User Dialog */}
+        <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit User - {editingUser?.username}</DialogTitle>
+              <DialogDescription>
+                Update user information, status, and Hardware ID settings.
+              </DialogDescription>
+            </DialogHeader>
+            {editingUser && (
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-user-username" className="text-right">Username</Label>
+                  <Input
+                    id="edit-user-username"
+                    defaultValue={editingUser.username}
+                    className="col-span-3"
+                    onChange={(e) => setEditingUser({...editingUser, username: e.target.value})}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-user-email" className="text-right">Email</Label>
+                  <Input
+                    id="edit-user-email"
+                    type="email"
+                    defaultValue={editingUser.email}
+                    className="col-span-3"
+                    onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-user-expires" className="text-right">Expires At</Label>
+                  <Input
+                    id="edit-user-expires"
+                    type="datetime-local"
+                    defaultValue={editingUser.expiresAt ? new Date(editingUser.expiresAt).toISOString().slice(0, 16) : ""}
+                    className="col-span-3"
+                    onChange={(e) => setEditingUser({...editingUser, expiresAt: e.target.value})}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-user-hwid" className="text-right">Hardware ID</Label>
+                  <Input
+                    id="edit-user-hwid"
+                    defaultValue={editingUser.hwid || ""}
+                    className="col-span-3"
+                    placeholder="Hardware ID (leave empty to reset)"
+                    onChange={(e) => setEditingUser({...editingUser, hwid: e.target.value})}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label className="text-right">Status</Label>
+                  <div className="col-span-3 space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="edit-user-active"
+                        checked={editingUser.isActive}
+                        onChange={(e) => setEditingUser({...editingUser, isActive: e.target.checked})}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="edit-user-active" className="text-sm">User is active</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="edit-user-paused"
+                        checked={editingUser.isPaused}
+                        onChange={(e) => setEditingUser({...editingUser, isPaused: e.target.checked})}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="edit-user-paused" className="text-sm">User is paused</Label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button 
+                onClick={() => {
+                  if (editingUser && selectedApp) {
+                    updateUserMutation.mutate({ 
+                      appId: selectedApp.id,
+                      userId: editingUser.id, 
+                      updates: {
+                        username: editingUser.username,
+                        email: editingUser.email,
+                        isActive: editingUser.isActive,
+                        isPaused: editingUser.isPaused,
+                        hwid: editingUser.hwid || null,
+                        expiresAt: editingUser.expiresAt ? new Date(editingUser.expiresAt) : null
+                      }
+                    });
+                  }
+                }}
+                className="phantom-button"
+                disabled={updateUserMutation.isPending}
+              >
+                {updateUserMutation.isPending ? "Updating..." : "Update User"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
