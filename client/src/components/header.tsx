@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, FileText, Users, DollarSign, LogIn, LogOut, Settings, Webhook, Ban, Home, Moon, Sun, Activity } from "lucide-react";
+import { Shield, FileText, Users, DollarSign, LogIn, LogOut, Settings, Webhook, Ban, Home, Moon, Sun, Activity, Code } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -70,6 +70,12 @@ export default function Header() {
                   Activity
                 </Button>
               </Link>
+              <Link href="/integration">
+                <Button variant={location === "/integration" ? "default" : "ghost"} size="sm">
+                  <Code className="h-4 w-4 mr-2" />
+                  Code
+                </Button>
+              </Link>
               <Link href="/docs">
                 <Button variant={location === "/docs" ? "default" : "ghost"} size="sm">
                   <FileText className="h-4 w-4 mr-2" />
@@ -109,6 +115,10 @@ export default function Header() {
                   <DropdownMenuItem onClick={() => setLocation("/activity-logs")}>
                     <Activity className="h-4 w-4 mr-2" />
                     Activity Logs
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setLocation("/integration")}>
+                    <Code className="h-4 w-4 mr-2" />
+                    Integration Examples
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout}>

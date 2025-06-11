@@ -12,6 +12,7 @@ import Documentation from "@/pages/documentation";
 import Webhooks from "@/pages/webhooks";
 import Blacklist from "@/pages/blacklist";
 import ActivityLogs from "@/pages/activity-logs";
+import IntegrationExamples from "@/pages/integration-examples";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -41,6 +42,7 @@ function Router() {
           <Route path="/webhooks" component={Webhooks} />
           <Route path="/blacklist" component={Blacklist} />
           <Route path="/activity-logs" component={ActivityLogs} />
+          <Route path="/integration" component={IntegrationExamples} />
           <Route path="/docs" component={Documentation} />
         </>
       )}
