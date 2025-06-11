@@ -233,7 +233,7 @@ public class PhantomAuth
     private readonly string _appVersion;
 
     public PhantomAuth(string apiKey, string appVersion = "1.0.0", 
-        string baseUrl = "https://your-replit-url.replit.dev/api/v1")
+        string baseUrl = "https://73210698-6e7f-40a6-8fcf-70bb0d45c838-00-3su5589hqa96z.sisko.replit.dev/api/v1")
     {
         _apiKey = apiKey;
         _baseUrl = baseUrl;
@@ -247,38 +247,82 @@ public class PhantomAuth
         try
         {
             string hwid = "";
+            
             ManagementObjectSearcher mos = new ManagementObjectSearcher("SELECT ProcessorId FROM Win32_Processor");
             foreach (ManagementObject mo in mos.Get())
+            {
                 hwid += mo["ProcessorId"].ToString();
-
+            }
+            
             mos = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard");
             foreach (ManagementObject mo in mos.Get())
+            {
                 hwid += mo["SerialNumber"].ToString();
-
+            }
+            
             using (SHA256 sha256 = SHA256.Create())
             {
                 byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(hwid));
                 return Convert.ToBase64String(hash).Substring(0, 32);
             }
         }
-        catch { return "HWID-FALLBACK-" + Environment.MachineName; }
+        catch
+        {
+            return "HWID-FALLBACK-" + Environment.MachineName;
+        }
     }
 
     public async Task<AuthResponse> LoginAsync(string username, string password, bool includeHwid = true)
     {
-        var data = new {
-            username, password, api_key = _apiKey, version = _appVersion,
+        var data = new { 
+            username, 
+            password, 
+            api_key = _apiKey,
+            version = _appVersion,
             hwid = includeHwid ? GetHardwareId() : null
         };
-
+        
         var json = JsonConvert.SerializeObject(data);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
+
         var response = await _httpClient.PostAsync($"{_baseUrl}/login", content);
         var responseJson = await response.Content.ReadAsStringAsync();
+        
         return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
     }
 
-    public void HandleLoginError(string message)
+    public async Task<AuthResponse> RegisterAsync(string username, string email, string password, DateTime? expiresAt = null)
+    {
+        var data = new { 
+            username, 
+            email, 
+            password, 
+            expiresAt,
+            hwid = GetHardwareId()
+        };
+        
+        var json = JsonConvert.SerializeObject(data);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"{_baseUrl}/register", content);
+        var responseJson = await response.Content.ReadAsStringAsync();
+        
+        return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
+    }
+
+    public async Task<AuthResponse> VerifySessionAsync(int userId)
+    {
+        var data = new { user_id = userId };
+        var json = JsonConvert.SerializeObject(data);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"{_baseUrl}/verify", content);
+        var responseJson = await response.Content.ReadAsStringAsync();
+        
+        return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
+    }
+
+    private void HandleLoginError(string message)
     {
         string errorTitle = "Login Failed";
         MessageBoxIcon icon = MessageBoxIcon.Error;
@@ -290,21 +334,37 @@ public class PhantomAuth
             DialogResult result = MessageBox.Show(
                 message + "\\n\\nWould you like to download the latest version?",
                 errorTitle, MessageBoxButtons.YesNo, icon);
+            
             if (result == DialogResult.Yes)
-                System.Diagnostics.Process.Start("https://your-website.com");
+            {
+                System.Diagnostics.Process.Start("https://yourwebsite.com/download");
+            }
             Application.Exit();
         }
         else if (message.Contains("hardware") || message.Contains("HWID"))
         {
-            MessageBox.Show("This account is locked to a different computer!", 
-                "Hardware Mismatch", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            errorTitle = "Hardware Mismatch";
+            icon = MessageBoxIcon.Warning;
+            MessageBox.Show("This account is locked to a different computer!", errorTitle, MessageBoxButtons.OK, icon);
+        }
+        else if (message.Contains("expired"))
+        {
+            errorTitle = "Account Expired";
+            icon = MessageBoxIcon.Warning;
+        }
+        else if (message.Contains("disabled") || message.Contains("paused"))
+        {
+            errorTitle = "Account Disabled";
+            icon = MessageBoxIcon.Warning;
         }
         else if (message.Contains("blacklisted") || message.Contains("blocked"))
         {
-            MessageBox.Show("Access denied. Contact support if you believe this is an error.", 
-                "Access Blocked", MessageBoxButtons.OK, MessageBoxIcon.Stop);
+            errorTitle = "Access Blocked";
+            icon = MessageBoxIcon.Stop;
+            MessageBox.Show("Access denied. Contact support if you believe this is an error.", errorTitle, MessageBoxButtons.OK, icon);
             Application.Exit();
         }
+
         MessageBox.Show(message, errorTitle, MessageBoxButtons.OK, icon);
     }
 
@@ -314,6 +374,30 @@ public class PhantomAuth
         if (!response.Success) HandleLoginError(response.Message);
         return response;
     }
+}
+
+public class AuthResponse
+{
+    [JsonProperty("success")]
+    public bool Success { get; set; }
+    
+    [JsonProperty("message")]
+    public string Message { get; set; }
+    
+    [JsonProperty("user_id")]
+    public int? UserId { get; set; }
+    
+    [JsonProperty("username")]
+    public string Username { get; set; }
+    
+    [JsonProperty("email")]
+    public string Email { get; set; }
+    
+    [JsonProperty("expires_at")]
+    public DateTime? ExpiresAt { get; set; }
+    
+    [JsonProperty("hwid_locked")]
+    public bool? HwidLocked { get; set; }
 }
 
 // Usage Example in Login Form:
