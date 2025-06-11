@@ -106,21 +106,53 @@ export default function AppManagement() {
     retry: 2,
   });
 
-  // Update edit form when application data loads
+  // Update edit form when application data loads and reset form when dialog opens
   useEffect(() => {
     if (application) {
-      setEditAppData(application);
+      setEditAppData({
+        name: application.name,
+        description: application.description,
+        version: application.version,
+        isActive: application.isActive,
+        hwidLockEnabled: application.hwidLockEnabled,
+        loginSuccessMessage: application.loginSuccessMessage,
+        loginFailedMessage: application.loginFailedMessage,
+        accountDisabledMessage: application.accountDisabledMessage,
+        accountExpiredMessage: application.accountExpiredMessage,
+        versionMismatchMessage: application.versionMismatchMessage,
+        hwidMismatchMessage: application.hwidMismatchMessage
+      });
     }
   }, [application]);
+
+  // Reset form data when dialog opens
+  useEffect(() => {
+    if (isEditAppDialogOpen && application) {
+      setEditAppData({
+        name: application.name,
+        description: application.description,
+        version: application.version,
+        isActive: application.isActive,
+        hwidLockEnabled: application.hwidLockEnabled,
+        loginSuccessMessage: application.loginSuccessMessage,
+        loginFailedMessage: application.loginFailedMessage,
+        accountDisabledMessage: application.accountDisabledMessage,
+        accountExpiredMessage: application.accountExpiredMessage,
+        versionMismatchMessage: application.versionMismatchMessage,
+        hwidMismatchMessage: application.hwidMismatchMessage
+      });
+    }
+  }, [isEditAppDialogOpen, application]);
 
   // Debug logging
   useEffect(() => {
     console.log("App ID:", appId);
     console.log("Application:", application);
+    console.log("Edit App Data:", editAppData);
     console.log("App Users:", appUsers);
     console.log("Loading Users:", isLoadingUsers);
     console.log("Users Error:", usersError);
-  }, [appId, application, appUsers, isLoadingUsers, usersError]);
+  }, [appId, application, editAppData, appUsers, isLoadingUsers, usersError]);
 
   // Create user mutation
   const createUserMutation = useMutation({
@@ -383,18 +415,30 @@ export default function AppManagement() {
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="isActive"
-                    checked={editAppData.isActive || false}
-                    onCheckedChange={(checked) => setEditAppData(prev => ({ ...prev, isActive: checked }))}
+                    checked={editAppData.isActive === true}
+                    onCheckedChange={(checked) => {
+                      console.log("Setting isActive to:", checked);
+                      setEditAppData(prev => ({ ...prev, isActive: checked }));
+                    }}
                   />
                   <Label htmlFor="isActive">Application Active</Label>
+                  <span className="text-xs text-muted-foreground">
+                    (Currently: {application?.isActive ? 'Active' : 'Inactive'})
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="hwidLock"
-                    checked={editAppData.hwidLockEnabled || false}
-                    onCheckedChange={(checked) => setEditAppData(prev => ({ ...prev, hwidLockEnabled: checked }))}
+                    checked={editAppData.hwidLockEnabled === true}
+                    onCheckedChange={(checked) => {
+                      console.log("Setting hwidLockEnabled to:", checked);
+                      setEditAppData(prev => ({ ...prev, hwidLockEnabled: checked }));
+                    }}
                   />
                   <Label htmlFor="hwidLock">Hardware ID Locking</Label>
+                  <span className="text-xs text-muted-foreground">
+                    (Currently: {application?.hwidLockEnabled ? 'Enabled' : 'Disabled'})
+                  </span>
                 </div>
               </div>
               <div className="flex justify-end gap-2">
