@@ -85,26 +85,16 @@ export default function AppManagement() {
   
   const [editAppData, setEditAppData] = useState<Partial<Application>>({});
 
-  // Fetch application details
-  const { data: application, isLoading: isLoadingApp, error: appError } = useQuery<Application>({
-    queryKey: ["/api/applications", appId],
-    queryFn: async () => {
-      if (!appId) throw new Error("No application ID");
-      const response = await fetch(`/api/applications/${appId}`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch application: ${response.status}`);
-      }
-      return response.json();
-    },
-    enabled: !!appId,
+  // Fetch all applications and find the specific one (more reliable)
+  const { data: applications = [], isLoading: isLoadingApps, error: appsError } = useQuery<Application[]>({
+    queryKey: ["/api/applications"],
     staleTime: 0,
     refetchOnMount: true,
   });
+
+  // Get the specific application from the list
+  const application = applications.find(app => app.id === appId);
+  const isLoadingApp = isLoadingApps;
 
   // Fetch application users with proper error handling
   const { data: appUsers = [], isLoading: isLoadingUsers, refetch: refetchUsers, error: usersError } = useQuery<AppUser[]>({
@@ -162,10 +152,10 @@ export default function AppManagement() {
       appStats,
       isLoadingApp,
       isLoadingStats,
-      appError,
+      appsError,
       statsError
     });
-  }, [appId, application, appStats, isLoadingApp, isLoadingStats, appError, statsError]);
+  }, [appId, application, appStats, isLoadingApp, isLoadingStats, appsError, statsError]);
 
   // Update edit form when application data loads and reset form when dialog opens
   useEffect(() => {
@@ -403,13 +393,27 @@ export default function AppManagement() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Application Not Found</h1>
-            {appError && (
-              <p className="text-red-500 mb-4">Error: {appError.message}</p>
+            {appsError && (
+              <p className="text-red-500 mb-4">Error: {appsError.message}</p>
             )}
             <Button onClick={() => setLocation("/dashboard")}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboard
             </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!application) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading application...</p>
           </div>
         </div>
       </div>
@@ -585,14 +589,14 @@ export default function AppManagement() {
                 <CardContent className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">Status</Label>
-                    <Badge variant={appStats?.applicationStatus === 'online' ? "default" : "secondary"}>
-                      {appStats?.applicationStatus === 'online' ? "Online" : application.isActive ? "Active" : "Inactive"}
+                    <Badge variant={application?.isActive ? "default" : "secondary"}>
+                      {application?.isActive ? "Online" : "Inactive"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">HWID Lock</Label>
-                    <Badge variant={appStats?.hwidLockEnabled === true ? "default" : "secondary"}>
-                      {appStats?.hwidLockEnabled === true ? "Enabled" : "Disabled"}
+                    <Badge variant={application?.hwidLockEnabled ? "default" : "secondary"}>
+                      {application?.hwidLockEnabled ? "Enabled" : "Disabled"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
