@@ -111,22 +111,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Dashboard stats
+  // Dashboard stats with real-time information
   app.get('/api/dashboard/stats', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const applications = await storage.getAllApplications(userId);
       
       let totalUsers = 0;
+      let totalActiveSessions = 0;
+      let totalApiRequests = 0;
+      
       for (const app of applications) {
         const users = await storage.getAllAppUsers(app.id);
+        const activeSessions = await storage.getActiveSessions(app.id);
+        const recentActivity = await storage.getActivityLogs(app.id, 1000);
+        
         totalUsers += users.length;
+        totalActiveSessions += activeSessions.length;
+        totalApiRequests += recentActivity.length;
       }
 
       res.json({
         totalApplications: applications.length,
         totalUsers,
         activeApplications: applications.filter(app => app.isActive).length,
+        totalActiveSessions,
+        totalApiRequests,
         accountType: 'Premium'
       });
     } catch (error) {
@@ -266,6 +276,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching application:", error);
       res.status(500).json({ message: "Failed to fetch application" });
+    }
+  });
+
+  // Get real-time application statistics
+  app.get('/api/applications/:id/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const application = await storage.getApplication(applicationId);
+      
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      // Check if user owns this application
+      const userId = req.user.claims.sub;
+      if (application.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get real-time statistics
+      const users = await storage.getAllAppUsers(applicationId);
+      const activeSessions = await storage.getActiveSessions(applicationId);
+      const recentActivity = await storage.getActivityLogs(applicationId, 100);
+      
+      // Calculate active users (users with active sessions)
+      const activeUsers = activeSessions.length;
+      const totalUsers = users.length;
+      const registeredUsers = users.filter(u => u.isActive && !u.isPaused).length;
+      
+      // Calculate login success rate from recent activity
+      const loginAttempts = recentActivity.filter(log => log.event.includes('login'));
+      const successfulLogins = loginAttempts.filter(log => log.success);
+      const loginSuccessRate = loginAttempts.length > 0 ? 
+        Math.round((successfulLogins.length / loginAttempts.length) * 100) : 100;
+
+      // Get latest activity timestamp
+      const lastActivity = recentActivity.length > 0 ? 
+        recentActivity[recentActivity.length - 1].createdAt : null;
+
+      res.json({
+        totalUsers,
+        activeUsers,
+        registeredUsers,
+        activeSessions: activeSessions.length,
+        loginSuccessRate,
+        totalApiRequests: recentActivity.length,
+        lastActivity,
+        applicationStatus: application.isActive ? 'online' : 'offline',
+        hwidLockEnabled: application.hwidLockEnabled
+      });
+    } catch (error) {
+      console.error("Error fetching application stats:", error);
+      res.status(500).json({ message: "Failed to fetch application stats" });
+    }
+  });
+
+  // Get active sessions for an application
+  app.get('/api/applications/:id/sessions', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const application = await storage.getApplication(applicationId);
+      
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      // Check if user owns this application
+      const userId = req.user.claims.sub;
+      if (application.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const activeSessions = await storage.getActiveSessions(applicationId);
+      res.json(activeSessions);
+    } catch (error) {
+      console.error("Error fetching active sessions:", error);
+      res.status(500).json({ message: "Failed to fetch active sessions" });
     }
   });
 

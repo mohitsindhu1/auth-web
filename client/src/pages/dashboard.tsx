@@ -80,6 +80,8 @@ interface DashboardStats {
   totalApplications: number;
   totalUsers: number;
   activeApplications: number;
+  totalActiveSessions: number;
+  totalApiRequests: number;
   accountType: string;
 }
 
@@ -469,12 +471,12 @@ export default function Dashboard() {
 
           <Card className="phantom-stats-card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Activity</CardTitle>
+              <CardTitle className="text-sm font-medium">Active Sessions</CardTitle>
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">99.9%</div>
-              <p className="text-xs text-muted-foreground">Uptime this month</p>
+              <div className="text-2xl font-bold">{dashboardStats?.totalActiveSessions || 0}</div>
+              <p className="text-xs text-muted-foreground">Live connections</p>
             </CardContent>
           </Card>
         </div>
