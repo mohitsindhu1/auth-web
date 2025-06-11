@@ -1224,28 +1224,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const application = applications[0]; // Use the first application for testing
+      const { event = 'user_login' } = req.body;
       
-      // Send a test webhook notification
+      // Test different webhook events
+      const testEvents = {
+        'user_login': {
+          success: true,
+          userData: { id: 1, username: 'test_user', email: 'test@example.com' },
+          options: { ipAddress: req.ip, userAgent: req.headers['user-agent'], hwid: 'TEST-HWID' }
+        },
+        'login_failed': {
+          success: false,
+          userData: { id: 1, username: 'test_user', email: 'test@example.com' },
+          options: { success: false, errorMessage: 'Invalid password', ipAddress: req.ip, userAgent: req.headers['user-agent'] }
+        },
+        'user_register': {
+          success: true,
+          userData: { id: 2, username: 'new_user', email: 'new@example.com' },
+          options: { ipAddress: req.ip, userAgent: req.headers['user-agent'] }
+        },
+        'account_disabled': {
+          success: false,
+          userData: { id: 1, username: 'disabled_user', email: 'disabled@example.com' },
+          options: { success: false, errorMessage: 'Account is disabled', ipAddress: req.ip, userAgent: req.headers['user-agent'] }
+        },
+        'account_expired': {
+          success: false,
+          userData: { id: 1, username: 'expired_user', email: 'expired@example.com' },
+          options: { success: false, errorMessage: 'Account has expired', ipAddress: req.ip, userAgent: req.headers['user-agent'] }
+        },
+        'version_mismatch': {
+          success: false,
+          userData: { id: 1, username: 'test_user', email: 'test@example.com' },
+          options: { success: false, errorMessage: 'Version mismatch detected', ipAddress: req.ip, userAgent: req.headers['user-agent'] }
+        },
+        'hwid_mismatch': {
+          success: false,
+          userData: { id: 1, username: 'test_user', email: 'test@example.com' },
+          options: { success: false, errorMessage: 'Hardware ID mismatch', ipAddress: req.ip, userAgent: req.headers['user-agent'] }
+        },
+        'login_blocked_ip': {
+          success: false,
+          userData: { username: 'test_user' },
+          options: { success: false, errorMessage: 'IP address is blacklisted', ipAddress: req.ip, userAgent: req.headers['user-agent'] }
+        },
+        'login_blocked_username': {
+          success: false,
+          userData: { username: 'blocked_user' },
+          options: { success: false, errorMessage: 'Username is blacklisted', ipAddress: req.ip, userAgent: req.headers['user-agent'] }
+        },
+        'login_blocked_hwid': {
+          success: false,
+          userData: { username: 'test_user' },
+          options: { success: false, errorMessage: 'Hardware ID is blacklisted', ipAddress: req.ip, userAgent: req.headers['user-agent'], hwid: 'BLOCKED-HWID' }
+        }
+      };
+
+      const testData = testEvents[event as keyof typeof testEvents] || testEvents['user_login'];
+      
+      // Send test webhook notification
       await webhookService.logAndNotify(
         userId,
         application.id,
-        'user_login',
-        null, // Don't reference a specific user for test webhook
-        {
-          success: true,
-          ipAddress: req.ip || '192.168.1.1',
-          userAgent: req.headers['user-agent'] || 'Test User Agent',
-          hwid: 'TEST-HWID-12345',
-          metadata: {
-            test: true,
-            timestamp: new Date().toISOString()
-          }
-        }
+        event,
+        testData.userData,
+        testData.options
       );
 
       res.json({ 
         success: true, 
-        message: 'Test webhook sent successfully',
+        message: `Test webhook sent for event: ${event}`,
         application_id: application.id
       });
     } catch (error) {

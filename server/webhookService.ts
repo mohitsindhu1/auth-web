@@ -160,9 +160,17 @@ export class WebhookService {
   async deliverWebhooks(userId: string, event: string, payload: WebhookPayload): Promise<void> {
     try {
       const webhooks = await storage.getUserWebhooks(userId);
+      console.log(`Attempting to deliver webhook for event: ${event}`);
+      console.log(`Found ${webhooks.length} webhooks for user ${userId}`);
+      
       const activeWebhooks = webhooks.filter(w => 
         w.isActive && w.events.includes(event)
       );
+      
+      console.log(`Active webhooks for event ${event}:`, activeWebhooks.length);
+      activeWebhooks.forEach(w => {
+        console.log(`Webhook ${w.id} events:`, w.events);
+      });
 
       // Send webhooks in parallel
       const deliveryPromises = activeWebhooks.map(webhook => 

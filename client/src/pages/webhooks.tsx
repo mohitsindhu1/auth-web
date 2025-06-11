@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Trash2, Edit, Copy, Webhook, Globe } from "lucide-react";
+import { Plus, Trash2, Edit, Copy, Webhook, Globe, ChevronDown } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import Header from "@/components/header";
 
 interface Webhook {
@@ -170,13 +171,13 @@ export default function Webhooks() {
 
   // Test webhook mutation
   const testWebhookMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("/api/test-webhook", "POST");
+    mutationFn: async (event: string = 'user_login') => {
+      return apiRequest("/api/test-webhook", "POST", { event });
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       toast({
         title: "Success",
-        description: "Test webhook sent successfully! Check your Discord channel.",
+        description: `Test webhook sent! Check your Discord channel.`,
       });
     },
     onError: (error: any) => {
@@ -202,13 +203,49 @@ export default function Webhooks() {
             <p className="text-muted-foreground">Manage webhook endpoints for real-time notifications</p>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => testWebhookMutation.mutate()}
-              disabled={testWebhookMutation.isPending}
-            >
-              {testWebhookMutation.isPending ? "Sending..." : "Test Webhook"}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  disabled={testWebhookMutation.isPending}
+                >
+                  {testWebhookMutation.isPending ? "Sending..." : "Test Webhook"}
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={() => testWebhookMutation.mutate('user_login')}>
+                  Test Login Success
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => testWebhookMutation.mutate('login_failed')}>
+                  Test Login Failed
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => testWebhookMutation.mutate('user_register')}>
+                  Test User Register
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => testWebhookMutation.mutate('account_disabled')}>
+                  Test Account Disabled
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => testWebhookMutation.mutate('account_expired')}>
+                  Test Account Expired
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => testWebhookMutation.mutate('version_mismatch')}>
+                  Test Version Mismatch
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => testWebhookMutation.mutate('hwid_mismatch')}>
+                  Test HWID Mismatch
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => testWebhookMutation.mutate('login_blocked_ip')}>
+                  Test Blocked IP
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => testWebhookMutation.mutate('login_blocked_username')}>
+                  Test Blocked Username
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => testWebhookMutation.mutate('login_blocked_hwid')}>
+                  Test Blocked HWID
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
