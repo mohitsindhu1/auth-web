@@ -630,14 +630,15 @@ export default function Dashboard() {
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setSelectedApp(app)}
-                                title="Manage Users"
-                              >
-                                <Users className="h-4 w-4" />
-                              </Button>
+                              <Link href={`/app/${app.id}`}>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Manage Application"
+                                >
+                                  <Settings className="h-4 w-4" />
+                                </Button>
+                              </Link>
                               <Button
                                 variant="ghost"
                                 size="sm"

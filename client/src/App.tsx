@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { useAuth } from "@/hooks/useAuth";
 import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
+import AppManagement from "@/pages/app-management";
 import Documentation from "@/pages/documentation";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
@@ -33,6 +34,7 @@ function Router() {
         <>
           <Route path="/" component={Home} />
           <Route path="/dashboard" component={Dashboard} />
+          <Route path="/app/:id" component={AppManagement} />
           <Route path="/docs" component={Documentation} />
         </>
       )}

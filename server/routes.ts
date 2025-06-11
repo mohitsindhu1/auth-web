@@ -184,6 +184,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get single application
+  app.get('/api/applications/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const application = await storage.getApplication(applicationId);
+      
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      // Check if user owns this application
+      const userId = req.user.claims.sub;
+      if (application.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      res.json(application);
+    } catch (error) {
+      console.error("Error fetching application:", error);
+      res.status(500).json({ message: "Failed to fetch application" });
+    }
+  });
+
   app.get('/api/applications/:id/users', isAuthenticated, async (req: any, res) => {
     try {
       const applicationId = parseInt(req.params.id);
@@ -288,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Pause app user
-  app.put('/api/applications/:id/users/:userId/pause', isAuthenticated, async (req: any, res) => {
+  app.post('/api/applications/:id/users/:userId/pause', isAuthenticated, async (req: any, res) => {
     try {
       const applicationId = parseInt(req.params.id);
       const userId = parseInt(req.params.userId);
@@ -322,7 +345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Unpause app user
-  app.put('/api/applications/:id/users/:userId/unpause', isAuthenticated, async (req: any, res) => {
+  app.post('/api/applications/:id/users/:userId/unpause', isAuthenticated, async (req: any, res) => {
     try {
       const applicationId = parseInt(req.params.id);
       const userId = parseInt(req.params.userId);
