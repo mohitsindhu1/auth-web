@@ -1112,6 +1112,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test webhook endpoint
+  app.post('/api/test-webhook', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const applications = await storage.getAllApplications(userId);
+      
+      if (applications.length === 0) {
+        return res.status(400).json({ message: "No applications found. Create an application first." });
+      }
+
+      const application = applications[0]; // Use the first application for testing
+      
+      // Send a test webhook notification
+      await webhookService.logAndNotify(
+        userId,
+        application.id,
+        'user_login',
+        {
+          id: 999,
+          username: 'test_user',
+          email: 'test@example.com'
+        },
+        {
+          success: true,
+          ipAddress: req.ip || '192.168.1.1',
+          userAgent: req.headers['user-agent'] || 'Test User Agent',
+          hwid: 'TEST-HWID-12345',
+          metadata: {
+            test: true,
+            timestamp: new Date().toISOString()
+          }
+        }
+      );
+
+      res.json({ 
+        success: true, 
+        message: 'Test webhook sent successfully',
+        application_id: application.id
+      });
+    } catch (error) {
+      console.error("Error sending test webhook:", error);
+      res.status(500).json({ message: "Failed to send test webhook" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

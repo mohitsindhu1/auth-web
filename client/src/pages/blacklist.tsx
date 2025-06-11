@@ -119,7 +119,14 @@ export default function Blacklist() {
       });
       return;
     }
-    createBlacklistMutation.mutate(formData);
+    
+    // Convert "global" to undefined for the API
+    const submitData = {
+      ...formData,
+      applicationId: formData.applicationId === "global" ? undefined : formData.applicationId
+    };
+    
+    createBlacklistMutation.mutate(submitData);
   };
 
   const getTypeIcon = (type: string) => {
@@ -174,7 +181,7 @@ export default function Blacklist() {
                       <SelectValue placeholder="Select application (leave empty for global)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Global (All Applications)</SelectItem>
+                      <SelectItem value="global">Global (All Applications)</SelectItem>
                       {applications.map(app => (
                         <SelectItem key={app.id} value={app.id.toString()}>
                           {app.name}

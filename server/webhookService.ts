@@ -37,9 +37,78 @@ export class WebhookService {
       .digest('hex');
   }
 
+  private formatDiscordWebhook(payload: WebhookPayload): any {
+    const color = payload.success ? 0x00ff00 : 0xff0000; // Green for success, red for failure
+    const eventEmoji: Record<string, string> = {
+      'user_login': '🔐',
+      'login_failed': '❌',
+      'user_register': '👤',
+      'account_expired': '⏰',
+      'hwid_mismatch': '🔒',
+      'version_mismatch': '🔄',
+      'account_disabled': '🚫'
+    };
+
+    interface DiscordEmbedField {
+      name: string;
+      value: string;
+      inline: boolean;
+    }
+
+    const fields: DiscordEmbedField[] = [];
+
+    const embed = {
+      title: `${eventEmoji[payload.event as keyof typeof eventEmoji] || '📊'} ${payload.event.replace('_', ' ').toUpperCase()}`,
+      color: color,
+      timestamp: payload.timestamp,
+      fields: fields,
+      footer: {
+        text: `Application ID: ${payload.application_id}`
+      }
+    };
+
+    if (payload.user_data) {
+      fields.push({
+        name: 'User Information',
+        value: `**Username:** ${payload.user_data.username}\n${payload.user_data.email ? `**Email:** ${payload.user_data.email}\n` : ''}${payload.user_data.ip_address ? `**IP:** ${payload.user_data.ip_address}\n` : ''}${payload.user_data.hwid ? `**HWID:** ${payload.user_data.hwid}\n` : ''}`,
+        inline: true
+      });
+    }
+
+    if (payload.error_message) {
+      fields.push({
+        name: 'Error Details',
+        value: payload.error_message,
+        inline: false
+      });
+    }
+
+    if (payload.metadata) {
+      fields.push({
+        name: 'Additional Information',
+        value: Object.entries(payload.metadata).map(([key, value]) => `**${key}:** ${value}`).join('\n'),
+        inline: false
+      });
+    }
+
+    return {
+      embeds: [embed]
+    };
+  }
+
   async sendWebhook(webhook: Webhook, payload: WebhookPayload): Promise<boolean> {
     try {
-      const payloadString = JSON.stringify(payload);
+      // Check if this is a Discord webhook URL
+      const isDiscordWebhook = webhook.url.includes('discord.com/api/webhooks');
+      
+      let webhookPayload;
+      if (isDiscordWebhook) {
+        webhookPayload = this.formatDiscordWebhook(payload);
+      } else {
+        webhookPayload = payload;
+      }
+
+      const payloadString = JSON.stringify(webhookPayload);
       const signature = webhook.secret 
         ? this.generateSignature(payloadString, webhook.secret)
         : undefined;
@@ -47,16 +116,23 @@ export class WebhookService {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'User-Agent': 'KeyAuth-Webhook/1.0',
-        'X-Webhook-Timestamp': payload.timestamp,
-        'X-Webhook-Event': payload.event,
       };
 
-      if (signature) {
-        headers['X-Webhook-Signature'] = `sha256=${signature}`;
+      // Only add custom headers for non-Discord webhooks
+      if (!isDiscordWebhook) {
+        headers['X-Webhook-Timestamp'] = payload.timestamp;
+        headers['X-Webhook-Event'] = payload.event;
+        
+        if (signature) {
+          headers['X-Webhook-Signature'] = `sha256=${signature}`;
+        }
       }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
+      
+      console.log('Sending webhook to:', webhook.url);
+      console.log('Payload:', payloadString);
       
       const response = await fetch(webhook.url, {
         method: 'POST',
@@ -66,6 +142,13 @@ export class WebhookService {
       });
       
       clearTimeout(timeoutId);
+
+      console.log('Webhook response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Webhook error response:', errorText);
+      }
 
       return response.ok;
     } catch (error) {
