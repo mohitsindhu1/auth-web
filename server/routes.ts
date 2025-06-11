@@ -1,113 +1,164 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, loginSchema, insertAccountSchema, firebaseLoginSchema } from "@shared/schema";
-import rateLimit from "express-rate-limit";
-import { initializeApp, cert } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
+import { setupAuth, isAuthenticated } from "./replitAuth";
+import { insertApiKeySchema, insertAppUserSchema, loginSchema } from "@shared/schema";
 
-// Rate limiting middleware
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // limit each IP to 10 requests per windowMs
-  message: { success: false, message: "Too many authentication attempts, please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: { success: false, message: "Rate limit exceeded, please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Middleware to validate API key
 async function validateApiKey(req: any, res: any, next: any) {
-  const apiKey = req.body.api_key || req.headers['x-api-key'];
+  const apiKey = req.headers['x-api-key'] || req.body.api_key;
   
   if (!apiKey) {
-    return res.status(401).json({
-      success: false,
-      message: "API key is required"
+    return res.status(401).json({ 
+      success: false, 
+      message: "API key is required" 
     });
   }
-  
-  const key = await storage.getApiKey(apiKey);
-  if (!key || !key.isActive) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid or inactive API key"
+
+  try {
+    const key = await storage.getApiKey(apiKey);
+    if (!key || !key.isActive) {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Invalid or inactive API key" 
+      });
+    }
+    
+    req.apiKey = key;
+    next();
+  } catch (error) {
+    return res.status(500).json({ 
+      success: false, 
+      message: "Error validating API key" 
     });
   }
-  
-  req.apiKey = key;
-  next();
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Apply rate limiting to all API routes
-  app.use('/api', apiLimiter);
-  
-  // User Registration
-  app.post('/api/auth/register', authLimiter, validateApiKey, async (req, res) => {
+  // Setup Replit Auth
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const validatedData = insertUserSchema.parse(req.body);
-      
-      // Check if user already exists
-      const existingUser = await storage.getUserByUsername(validatedData.username);
-      if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          message: "Username already exists"
-        });
-      }
-      
-      const existingEmail = await storage.getUserByEmail(validatedData.email);
-      if (existingEmail) {
-        return res.status(400).json({
-          success: false,
-          message: "Email already exists"
-        });
-      }
-      
-      const user = await storage.createUser(validatedData);
-      
-      res.status(201).json({
-        success: true,
-        message: "User registered successfully",
-        user_id: user.id.toString()
-      });
-      
-    } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message || "Registration failed"
-      });
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
     }
   });
-  
-  // User Login
-  app.post('/api/auth/login', authLimiter, validateApiKey, async (req, res) => {
+
+  // Dashboard stats
+  app.get('/api/dashboard/stats', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const apiKeys = await storage.getAllApiKeys(userId);
+      const appUsers = await storage.getAllAppUsers(userId);
+      
+      res.json({
+        totalUsers: appUsers.length,
+        totalApiKeys: apiKeys.length,
+        activeApiKeys: apiKeys.filter(key => key.isActive).length,
+        accountType: "Premium"
+      });
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard stats" });
+    }
+  });
+
+  // API Key management
+  app.get('/api/api-keys', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const apiKeys = await storage.getAllApiKeys(userId);
+      res.json(apiKeys);
+    } catch (error) {
+      console.error("Error fetching API keys:", error);
+      res.status(500).json({ message: "Failed to fetch API keys" });
+    }
+  });
+
+  app.post('/api/api-keys', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertApiKeySchema.parse(req.body);
+      
+      const apiKey = await storage.createApiKey(userId, validatedData);
+      res.json(apiKey);
+    } catch (error) {
+      console.error("Error creating API key:", error);
+      res.status(500).json({ message: "Failed to create API key" });
+    }
+  });
+
+  app.delete('/api/api-keys/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deactivateApiKey(id);
+      
+      if (success) {
+        res.json({ message: "API key deactivated successfully" });
+      } else {
+        res.status(404).json({ message: "API key not found" });
+      }
+    } catch (error) {
+      console.error("Error deactivating API key:", error);
+      res.status(500).json({ message: "Failed to deactivate API key" });
+    }
+  });
+
+  // App Users management
+  app.get('/api/users', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const users = await storage.getAllAppUsers(userId);
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.post('/api/users', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const validatedData = insertAppUserSchema.parse(req.body);
+      
+      // Check if username already exists for this user
+      const existingUser = await storage.getAppUserByUsername(userId, validatedData.username);
+      if (existingUser) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Username already exists" 
+        });
+      }
+
+      const user = await storage.createAppUser(userId, validatedData);
+      res.json(user);
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ message: "Failed to create user" });
+    }
+  });
+
+  // Auth API for created users
+  app.post('/api/auth/login', validateApiKey, async (req: any, res) => {
     try {
       const validatedData = loginSchema.parse(req.body);
+      const apiKey = req.apiKey;
       
-      const user = await storage.getUserByUsername(validatedData.username);
+      // Find user by username
+      const user = await storage.getAppUserByUsername(apiKey.userId, validatedData.username);
       if (!user) {
         return res.status(401).json({
           success: false,
           message: "Invalid credentials"
         });
       }
-      
-      if (!user.isActive) {
-        return res.status(401).json({
-          success: false,
-          message: "Account is deactivated"
-        });
-      }
-      
+
+      // Validate password
       const isValidPassword = await storage.validatePassword(validatedData.password, user.password);
       if (!isValidPassword) {
         return res.status(401).json({
@@ -115,377 +166,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Invalid credentials"
         });
       }
-      
+
       // Update last login
-      await storage.updateUser(user.id, { lastLogin: new Date() });
-      
-      // Create session
-      const session = await storage.createSession(user.id);
-      
+      await storage.updateAppUser(user.id, { lastLogin: new Date() });
+
       res.json({
         success: true,
         message: "Login successful",
         user_id: user.id.toString(),
-        session_token: session.sessionToken
-      });
-      
-    } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message || "Login failed"
-      });
-    }
-  });
-  
-  // Verify Session
-  app.post('/api/auth/verify', validateApiKey, async (req, res) => {
-    try {
-      const { session_token } = req.body;
-      
-      if (!session_token) {
-        return res.status(400).json({
-          success: false,
-          message: "Session token is required"
-        });
-      }
-      
-      const session = await storage.getSession(session_token);
-      if (!session) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid or expired session"
-        });
-      }
-      
-      const user = await storage.getUser(session.userId);
-      if (!user || !user.isActive) {
-        return res.status(401).json({
-          success: false,
-          message: "User not found or inactive"
-        });
-      }
-      
-      res.json({
-        success: true,
-        message: "Session is valid",
-        user_id: user.id.toString(),
-        username: user.username
-      });
-      
-    } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message || "Session verification failed"
-      });
-    }
-  });
-  
-  // Logout
-  app.post('/api/auth/logout', validateApiKey, async (req, res) => {
-    try {
-      const { session_token } = req.body;
-      
-      if (session_token) {
-        await storage.deleteSession(session_token);
-      }
-      
-      res.json({
-        success: true,
-        message: "Logged out successfully"
-      });
-      
-    } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message || "Logout failed"
-      });
-    }
-  });
-  
-  // Admin Routes
-  
-  // Get all users (admin)
-  app.get('/api/admin/users', validateApiKey, async (req, res) => {
-    try {
-      const users = await storage.getAllUsers();
-      const sanitizedUsers = users.map(user => ({
-        id: user.id,
         username: user.username,
-        email: user.email,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        lastLogin: user.lastLogin
-      }));
-      
-      res.json({
-        success: true,
-        users: sanitizedUsers,
-        total: sanitizedUsers.length
+        email: user.email
       });
-      
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message || "Failed to fetch users"
-      });
-    }
-  });
-  
-  // Toggle user status (admin)
-  app.patch('/api/admin/users/:id/toggle', validateApiKey, async (req, res) => {
-    try {
-      const userId = parseInt(req.params.id);
-      const user = await storage.getUser(userId);
-      
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found"
-        });
-      }
-      
-      const updatedUser = await storage.updateUser(userId, { isActive: !user.isActive });
-      
-      res.json({
-        success: true,
-        message: `User ${updatedUser?.isActive ? 'activated' : 'deactivated'} successfully`,
-        user: {
-          id: updatedUser?.id,
-          username: updatedUser?.username,
-          isActive: updatedUser?.isActive
-        }
-      });
-      
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message || "Failed to update user"
-      });
-    }
-  });
-  
-  // Delete user (admin)
-  app.delete('/api/admin/users/:id', validateApiKey, async (req, res) => {
-    try {
-      const userId = parseInt(req.params.id);
-      const deleted = await storage.deleteUser(userId);
-      
-      if (!deleted) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found"
-        });
-      }
-      
-      res.json({
-        success: true,
-        message: "User deleted successfully"
-      });
-      
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message || "Failed to delete user"
-      });
-    }
-  });
-  
-  // Get API keys (admin)
-  app.get('/api/admin/api-keys', validateApiKey, async (req, res) => {
-    try {
-      const apiKeys = await storage.getAllApiKeys();
-      
-      res.json({
-        success: true,
-        api_keys: apiKeys,
-        total: apiKeys.length
-      });
-      
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message || "Failed to fetch API keys"
-      });
-    }
-  });
-  
-  // Create API key (admin)
-  app.post('/api/admin/api-keys', validateApiKey, async (req, res) => {
-    try {
-      const { name } = req.body;
-      
-      if (!name) {
-        return res.status(400).json({
-          success: false,
-          message: "API key name is required"
-        });
-      }
-      
-      const apiKey = await storage.createApiKey({ name });
-      
-      res.status(201).json({
-        success: true,
-        message: "API key created successfully",
-        api_key: apiKey
-      });
-      
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message || "Failed to create API key"
-      });
-    }
-  });
 
-  // Firebase Authentication Routes
-  app.post('/api/auth/firebase-login', async (req, res) => {
-    try {
-      const validatedData = firebaseLoginSchema.parse(req.body);
-      
-      // Check if account exists
-      let account = await storage.getAccountByFirebaseUid(validatedData.firebase_uid);
-      
-      if (!account) {
-        // Create new account
-        account = await storage.createAccount({
-          firebaseUid: validatedData.firebase_uid,
-          email: validatedData.email,
-          displayName: validatedData.display_name || validatedData.email,
-          isActive: true
-        });
-      }
-      
-      res.json({
-        success: true,
-        message: "Firebase login successful",
-        account_id: account.id.toString(),
-        email: account.email
-      });
-      
-    } catch (error: any) {
-      res.status(400).json({
-        success: false,
-        message: error.message || "Firebase login failed"
-      });
-    }
-  });
-
-  // Dashboard Stats (per account)
-  app.get('/api/dashboard/stats', async (req, res) => {
-    try {
-      const accountId = req.headers['x-account-id'];
-      
-      if (!accountId) {
-        return res.status(400).json({
-          success: false,
-          message: "Account ID is required"
-        });
-      }
-      
-      const users = await storage.getAllUsers(parseInt(accountId as string));
-      const apiKeys = await storage.getAllApiKeys(parseInt(accountId as string));
-      const activeApiKeys = apiKeys.filter(key => key.isActive);
-      
-      res.json({
-        success: true,
-        totalUsers: users.length,
-        totalApiKeys: apiKeys.length,
-        activeApiKeys: activeApiKeys.length,
-        accountType: 'Gaming Arena'
-      });
-      
-    } catch (error: any) {
+    } catch (error) {
+      console.error("Login error:", error);
       res.status(500).json({
         success: false,
-        message: error.message || "Failed to fetch dashboard stats"
-      });
-    }
-  });
-
-  // Get API keys for specific account
-  app.get('/api/api-keys', async (req, res) => {
-    try {
-      const accountId = req.headers['x-account-id'];
-      
-      if (!accountId) {
-        return res.status(400).json({
-          success: false,
-          message: "Account ID is required"
-        });
-      }
-      
-      const apiKeys = await storage.getAllApiKeys(parseInt(accountId as string));
-      
-      res.json(apiKeys);
-      
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message || "Failed to fetch API keys"
-      });
-    }
-  });
-
-  // Create API key for specific account
-  app.post('/api/api-keys', async (req, res) => {
-    try {
-      const accountId = req.headers['x-account-id'];
-      const { name } = req.body;
-      
-      if (!accountId) {
-        return res.status(400).json({
-          success: false,
-          message: "Account ID is required"
-        });
-      }
-      
-      if (!name) {
-        return res.status(400).json({
-          success: false,
-          message: "API key name is required"
-        });
-      }
-      
-      const apiKey = await storage.createApiKey(parseInt(accountId as string), { name });
-      
-      res.status(201).json(apiKey);
-      
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message || "Failed to create API key"
-      });
-    }
-  });
-
-  // Get users for specific account
-  app.get('/api/users', async (req, res) => {
-    try {
-      const accountId = req.headers['x-account-id'];
-      
-      if (!accountId) {
-        return res.status(400).json({
-          success: false,
-          message: "Account ID is required"
-        });
-      }
-      
-      const users = await storage.getAllUsers(parseInt(accountId as string));
-      const sanitizedUsers = users.map(user => ({
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        isActive: user.isActive,
-        createdAt: user.createdAt,
-        lastLogin: user.lastLogin
-      }));
-      
-      res.json(sanitizedUsers);
-      
-    } catch (error: any) {
-      res.status(500).json({
-        success: false,
-        message: error.message || "Failed to fetch users"
+        message: "Login failed"
       });
     }
   });
