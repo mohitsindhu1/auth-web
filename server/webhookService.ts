@@ -187,12 +187,30 @@ export class WebhookService {
     errorMessage?: string;
   }): Promise<void> {
     try {
-      await storage.createActivityLog({
+      // Only include appUserId if it's a valid number and the user exists
+      const logData = {
         ...activityData,
         success: activityData.success ?? true,
-      });
+      };
+      
+      // Remove appUserId if it doesn't exist or is invalid
+      if (activityData.appUserId && activityData.appUserId > 0) {
+        try {
+          const userExists = await storage.getAppUser(activityData.appUserId);
+          if (!userExists) {
+            delete logData.appUserId;
+          }
+        } catch {
+          delete logData.appUserId;
+        }
+      } else {
+        delete logData.appUserId;
+      }
+      
+      await storage.createActivityLog(logData);
     } catch (error) {
       console.error('Failed to log activity:', error);
+      // Don't throw the error - continue with webhook delivery even if logging fails
     }
   }
 

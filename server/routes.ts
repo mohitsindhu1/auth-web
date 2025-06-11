@@ -635,6 +635,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const user = await storage.createAppUser(application.id, validatedData);
+      
+      // Send registration webhook notification
+      await webhookService.logAndNotify(
+        application.userId,
+        application.id,
+        'user_register',
+        user,
+        { 
+          success: true, 
+          ipAddress: req.ip || req.connection.remoteAddress,
+          userAgent: req.headers['user-agent'],
+          metadata: {
+            registration_time: new Date().toISOString(),
+            expires_at: user.expiresAt?.toISOString() || null
+          }
+        }
+      );
+      
       res.status(201).json({ 
         success: true, 
         message: "User registered successfully",
@@ -769,6 +787,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if user is active
       if (!user.isActive) {
+        await webhookService.logAndNotify(
+          application.userId,
+          application.id,
+          'account_disabled',
+          user,
+          { 
+            success: false, 
+            errorMessage: "Account is disabled",
+            ipAddress,
+            userAgent,
+            hwid
+          }
+        );
+        
         return res.status(401).json({ 
           success: false, 
           message: application.accountDisabledMessage || "Account is disabled!" 
@@ -777,6 +809,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check if user is paused
       if (user.isPaused) {
+        await webhookService.logAndNotify(
+          application.userId,
+          application.id,
+          'account_disabled',
+          user,
+          { 
+            success: false, 
+            errorMessage: "Account is temporarily paused",
+            ipAddress,
+            userAgent,
+            hwid
+          }
+        );
+        
         return res.status(401).json({ 
           success: false, 
           message: "Account is temporarily paused. Contact support." 
@@ -785,6 +831,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Check expiration
       if (user.expiresAt && new Date() > user.expiresAt) {
+        await webhookService.logAndNotify(
+          application.userId,
+          application.id,
+          'account_expired',
+          user,
+          { 
+            success: false, 
+            errorMessage: "Account has expired",
+            ipAddress,
+            userAgent,
+            hwid,
+            metadata: {
+              expired_at: user.expiresAt.toISOString()
+            }
+          }
+        );
+        
         return res.status(401).json({ 
           success: false, 
           message: application.accountExpiredMessage || "Account has expired!" 
@@ -799,6 +862,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           loginAttempts: user.loginAttempts + 1,
           lastLoginAttempt: new Date()
         });
+        
+        // Send failed login webhook notification
+        await webhookService.logAndNotify(
+          application.userId,
+          application.id,
+          'login_failed',
+          user,
+          { 
+            success: false, 
+            errorMessage: "Invalid password provided",
+            ipAddress,
+            userAgent,
+            hwid,
+            metadata: {
+              login_attempts: user.loginAttempts + 1,
+              attempt_time: new Date().toISOString()
+            }
+          }
+        );
         
         return res.status(401).json({ 
           success: false, 
@@ -833,6 +915,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         loginAttempts: 0,
         lastLoginAttempt: new Date()
       });
+
+      // Send successful login webhook notification
+      await webhookService.logAndNotify(
+        application.userId,
+        application.id,
+        'user_login',
+        user,
+        { 
+          success: true, 
+          ipAddress,
+          userAgent,
+          hwid,
+          metadata: {
+            login_time: new Date().toISOString(),
+            version: version,
+            hwid_locked: application.hwidLockEnabled && !!user.hwid
+          }
+        }
+      );
 
       // Success response with custom message
       res.json({ 
@@ -1129,11 +1230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
         application.id,
         'user_login',
-        {
-          id: 999,
-          username: 'test_user',
-          email: 'test@example.com'
-        },
+        null, // Don't reference a specific user for test webhook
         {
           success: true,
           ipAddress: req.ip || '192.168.1.1',
