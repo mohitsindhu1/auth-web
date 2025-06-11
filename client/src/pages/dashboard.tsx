@@ -132,33 +132,31 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background relative">
-      <ParticleBackground />
-      
-      {/* Gaming Header */}
-      <div className="relative z-10 border-b border-border/50 backdrop-blur-sm">
+    <div className="min-h-screen bg-gray-50">
+      {/* Professional Header */}
+      <div className="bg-white border-b border-gray-200 shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link href="/" className="flex items-center space-x-3">
-                <Gamepad2 className="h-8 w-8 text-neon-purple neon-glow" />
-                <span className="text-2xl font-bold neon-text">GameAuth</span>
+                <Shield className="h-8 w-8 primary-color" />
+                <span className="text-2xl font-bold text-gray-900">AuthAPI</span>
               </Link>
-              <Badge className="bg-gradient-to-r from-purple-500 to-blue-500 text-white">
-                <Trophy className="h-3 w-3 mr-1" />
-                Arena Master
+              <Badge className="bg-primary text-white">
+                <Building className="h-3 w-3 mr-1" />
+                Enterprise
               </Badge>
             </div>
             
             <div className="flex items-center space-x-4">
               <div className="text-right">
-                <p className="text-sm text-muted-foreground">Logged in as</p>
-                <p className="font-semibold text-neon-blue">{accountInfo.email}</p>
+                <p className="text-sm text-gray-600">Logged in as</p>
+                <p className="font-semibold primary-color">{accountInfo.email}</p>
               </div>
               <Button
                 onClick={handleSignOut}
                 variant="outline"
-                className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                className="border-red-500 text-red-600 hover:bg-red-50"
               >
                 Sign Out
               </Button>
