@@ -120,6 +120,9 @@ export const updateAppUserSchema = createInsertSchema(appUsers).pick({
   isPaused: true,
   hwid: true,
   expiresAt: true,
+  lastLogin: true,
+  loginAttempts: true,
+  lastLoginAttempt: true,
 }).partial();
 
 export const loginSchema = z.object({

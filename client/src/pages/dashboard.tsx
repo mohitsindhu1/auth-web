@@ -30,7 +30,18 @@ import {
   Trash2,
   Settings,
   Calendar,
-  BookOpen
+  BookOpen,
+  Edit,
+  Pause,
+  Play,
+  Lock,
+  Unlock,
+  MessageSquare,
+  Version,
+  HardDrive,
+  AlertTriangle,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 
 interface Application {
@@ -38,8 +49,17 @@ interface Application {
   name: string;
   description: string;
   apiKey: string;
+  version: string;
   isActive: boolean;
+  hwidLockEnabled: boolean;
+  loginSuccessMessage: string;
+  loginFailedMessage: string;
+  accountDisabledMessage: string;
+  accountExpiredMessage: string;
+  versionMismatchMessage: string;
+  hwidMismatchMessage: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 interface AppUser {
@@ -47,9 +67,13 @@ interface AppUser {
   username: string;
   email: string;
   isActive: boolean;
+  isPaused: boolean;
+  hwid?: string;
   expiresAt?: string;
   createdAt: string;
   lastLogin?: string;
+  loginAttempts: number;
+  lastLoginAttempt?: string;
 }
 
 interface DashboardStats {
