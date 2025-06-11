@@ -54,6 +54,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Firebase authentication route
   app.post('/api/auth/firebase-login', async (req: any, res) => {
+    // Prevent duplicate responses
+    if (res.headersSent) {
+      return;
+    }
+
     try {
       const { firebase_uid, email, display_name } = req.body;
 
@@ -88,7 +93,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('Session created successfully');
 
-      res.json({
+      return res.json({
         success: true,
         message: "Login successful! Redirecting to dashboard...",
         account_id: firebase_uid,
@@ -97,10 +102,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error) {
       console.error("Firebase login error:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: "Authentication failed: " + (error instanceof Error ? error.message : 'Unknown error')
-      });
+      if (!res.headersSent) {
+        return res.status(500).json({ 
+          success: false, 
+          message: "Authentication failed: " + (error instanceof Error ? error.message : 'Unknown error')
+        });
+      }
     }
   });
 

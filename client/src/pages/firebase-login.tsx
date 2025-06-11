@@ -16,6 +16,7 @@ const firebaseLoginSchema = z.object({});
 export default function FirebaseLogin() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [authenticating, setAuthenticating] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -25,9 +26,12 @@ export default function FirebaseLogin() {
   });
 
   useEffect(() => {
+    let authenticationInProgress = false;
+
     // Handle redirect result
     handleRedirectResult().then((result) => {
-      if (result) {
+      if (result && !authenticationInProgress) {
+        authenticationInProgress = true;
         setUser(result.user);
         authenticateWithBackend(result.user);
       }
@@ -43,11 +47,13 @@ export default function FirebaseLogin() {
 
     // Listen for auth state changes
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && !loading) {
+      if (user && !loading && !authenticationInProgress && !authenticating) {
+        authenticationInProgress = true;
         setUser(user);
         authenticateWithBackend(user);
       } else if (!user) {
         setUser(null);
+        authenticationInProgress = false;
       }
     });
 
@@ -55,6 +61,13 @@ export default function FirebaseLogin() {
   }, []);
 
   const authenticateWithBackend = async (firebaseUser: any) => {
+    if (authenticating) {
+      return; // Prevent duplicate authentication attempts
+    }
+    
+    setAuthenticating(true);
+    setLoading(true);
+    
     try {
       const token = await firebaseUser.getIdToken();
       
@@ -105,6 +118,7 @@ export default function FirebaseLogin() {
       });
     } finally {
       setLoading(false);
+      setAuthenticating(false);
     }
   };
 
