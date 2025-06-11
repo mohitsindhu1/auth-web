@@ -77,6 +77,76 @@ export const appUsers = pgTable("app_users", {
   };
 });
 
+// Webhook configurations
+export const webhooks = pgTable("webhooks", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  secret: text("secret"), // For webhook signature verification
+  events: text("events").array().notNull().default([]), // Array of event types to listen for
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Blacklist system
+export const blacklist = pgTable("blacklist", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id").references(() => applications.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(), // 'ip', 'hwid', 'username', 'email'
+  value: text("value").notNull(), // The actual value to blacklist
+  reason: text("reason"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+}, (table) => {
+  return {
+    uniqueBlacklistEntry: index("unique_blacklist_entry").on(table.applicationId, table.type, table.value),
+  };
+});
+
+// Activity logs for webhook events and tracking
+export const activityLogs = pgTable("activity_logs", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id").references(() => applications.id, { onDelete: "cascade" }),
+  appUserId: integer("app_user_id").references(() => appUsers.id, { onDelete: "cascade" }),
+  event: text("event").notNull(), // 'login', 'register', 'login_failed', 'logout', etc.
+  ipAddress: text("ip_address"),
+  hwid: text("hwid"),
+  userAgent: text("user_agent"),
+  metadata: jsonb("metadata"), // Additional event data
+  success: boolean("success").notNull().default(true),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    activityLogsByApp: index("activity_logs_by_app").on(table.applicationId, table.createdAt),
+    activityLogsByUser: index("activity_logs_by_user").on(table.appUserId, table.createdAt),
+  };
+});
+
+// Real-time sessions tracking
+export const activeSessions = pgTable("active_sessions", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+  appUserId: integer("app_user_id").notNull().references(() => appUsers.id, { onDelete: "cascade" }),
+  sessionToken: text("session_token").notNull().unique(),
+  ipAddress: text("ip_address"),
+  hwid: text("hwid"),
+  userAgent: text("user_agent"),
+  location: text("location"), // Geolocation info
+  isActive: boolean("is_active").notNull().default(true),
+  lastActivity: timestamp("last_activity").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at"),
+}, (table) => {
+  return {
+    activeSessionsByApp: index("active_sessions_by_app").on(table.applicationId, table.isActive),
+    activeSessionsByUser: index("active_sessions_by_user").on(table.appUserId, table.isActive),
+  };
+});
+
 export const insertApplicationSchema = createInsertSchema(applications).pick({
   name: true,
   description: true,
@@ -136,6 +206,32 @@ export const loginSchema = z.object({
   hwid: z.string().optional(),
 });
 
+export const insertWebhookSchema = createInsertSchema(webhooks).pick({
+  url: true,
+  secret: true,
+  events: true,
+});
+
+export const insertBlacklistSchema = createInsertSchema(blacklist).pick({
+  applicationId: true,
+  type: true,
+  value: true,
+  reason: true,
+});
+
+export const insertActivityLogSchema = createInsertSchema(activityLogs).pick({
+  applicationId: true,
+  appUserId: true,
+  event: true,
+  ipAddress: true,
+  hwid: true,
+  userAgent: true,
+  metadata: true,
+  errorMessage: true,
+}).extend({
+  success: z.boolean().optional(),
+});
+
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type Application = typeof applications.$inferSelect;
@@ -145,3 +241,11 @@ export type AppUser = typeof appUsers.$inferSelect;
 export type InsertAppUser = z.infer<typeof insertAppUserSchema>;
 export type UpdateAppUser = z.infer<typeof updateAppUserSchema>;
 export type LoginRequest = z.infer<typeof loginSchema>;
+
+export type Webhook = typeof webhooks.$inferSelect;
+export type InsertWebhook = z.infer<typeof insertWebhookSchema>;
+export type BlacklistEntry = typeof blacklist.$inferSelect;
+export type InsertBlacklistEntry = z.infer<typeof insertBlacklistSchema>;
+export type ActivityLog = typeof activityLogs.$inferSelect;
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type ActiveSession = typeof activeSessions.$inferSelect;
