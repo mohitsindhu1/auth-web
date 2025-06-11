@@ -41,7 +41,16 @@ export const applications = pgTable("applications", {
   name: text("name").notNull(),
   description: text("description"),
   apiKey: text("api_key").notNull().unique(),
+  version: text("version").notNull().default("1.0.0"),
   isActive: boolean("is_active").notNull().default(true),
+  hwidLockEnabled: boolean("hwid_lock_enabled").notNull().default(false),
+  // Custom messages for different scenarios
+  loginSuccessMessage: text("login_success_message").default("Login successful!"),
+  loginFailedMessage: text("login_failed_message").default("Invalid credentials!"),
+  accountDisabledMessage: text("account_disabled_message").default("Account is disabled!"),
+  accountExpiredMessage: text("account_expired_message").default("Account has expired!"),
+  versionMismatchMessage: text("version_mismatch_message").default("Please update your application to the latest version!"),
+  hwidMismatchMessage: text("hwid_mismatch_message").default("Hardware ID mismatch detected!"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -54,9 +63,13 @@ export const appUsers = pgTable("app_users", {
   password: text("password").notNull(),
   email: text("email").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  isPaused: boolean("is_paused").notNull().default(false),
+  hwid: text("hwid"), // Hardware ID for locking
   expiresAt: timestamp("expires_at"), // Time limit for user validity
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastLogin: timestamp("last_login"),
+  loginAttempts: integer("login_attempts").notNull().default(0),
+  lastLoginAttempt: timestamp("last_login_attempt"),
 }, (table) => {
   return {
     uniqueUsernamePerApp: index("unique_username_per_app").on(table.applicationId, table.username),
@@ -67,6 +80,14 @@ export const appUsers = pgTable("app_users", {
 export const insertApplicationSchema = createInsertSchema(applications).pick({
   name: true,
   description: true,
+  version: true,
+  hwidLockEnabled: true,
+  loginSuccessMessage: true,
+  loginFailedMessage: true,
+  accountDisabledMessage: true,
+  accountExpiredMessage: true,
+  versionMismatchMessage: true,
+  hwidMismatchMessage: true,
 });
 
 export const insertAppUserSchema = createInsertSchema(appUsers).pick({
@@ -74,18 +95,47 @@ export const insertAppUserSchema = createInsertSchema(appUsers).pick({
   password: true,
   email: true,
   expiresAt: true,
+  hwid: true,
 });
+
+export const updateApplicationSchema = createInsertSchema(applications).pick({
+  name: true,
+  description: true,
+  version: true,
+  isActive: true,
+  hwidLockEnabled: true,
+  loginSuccessMessage: true,
+  loginFailedMessage: true,
+  accountDisabledMessage: true,
+  accountExpiredMessage: true,
+  versionMismatchMessage: true,
+  hwidMismatchMessage: true,
+}).partial();
+
+export const updateAppUserSchema = createInsertSchema(appUsers).pick({
+  username: true,
+  password: true,
+  email: true,
+  isActive: true,
+  isPaused: true,
+  hwid: true,
+  expiresAt: true,
+}).partial();
 
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
   api_key: z.string().min(1, "API key is required"),
+  version: z.string().optional(),
+  hwid: z.string().optional(),
 });
 
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type Application = typeof applications.$inferSelect;
 export type InsertApplication = z.infer<typeof insertApplicationSchema>;
+export type UpdateApplication = z.infer<typeof updateApplicationSchema>;
 export type AppUser = typeof appUsers.$inferSelect;
 export type InsertAppUser = z.infer<typeof insertAppUserSchema>;
+export type UpdateAppUser = z.infer<typeof updateAppUserSchema>;
 export type LoginRequest = z.infer<typeof loginSchema>;
