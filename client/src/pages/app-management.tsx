@@ -79,13 +79,31 @@ export default function AppManagement() {
     enabled: !!appId,
   });
 
-  // Fetch application users
+  // Fetch application users with proper error handling
   const { data: appUsers = [], isLoading: isLoadingUsers, refetch: refetchUsers, error: usersError } = useQuery<AppUser[]>({
     queryKey: ["/api/applications", appId, "users"],
+    queryFn: async () => {
+      if (!appId) throw new Error("No application ID");
+      console.log(`Fetching users for app ${appId}`);
+      const response = await fetch(`/api/applications/${appId}/users`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to fetch users' }));
+        throw new Error(errorData.message || `HTTP ${response.status}`);
+      }
+      const users = await response.json();
+      console.log(`Received users:`, users);
+      return users;
+    },
     enabled: !!appId && !!application,
-    staleTime: 0, // Always refetch
+    staleTime: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
+    retry: 2,
   });
 
   // Update edit form when application data loads
@@ -149,18 +167,22 @@ export default function AppManagement() {
   // Update application mutation
   const updateApplicationMutation = useMutation({
     mutationFn: async (data: Partial<Application>) => {
+      console.log("Updating application with data:", data);
       return apiRequest(`/api/applications/${appId}`, "PUT", data);
     },
-    onSuccess: () => {
+    onSuccess: (updatedApp) => {
+      console.log("Application updated successfully:", updatedApp);
       queryClient.invalidateQueries({ queryKey: ["/api/applications", appId] });
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       setIsEditAppDialogOpen(false);
       toast({
-        title: "Success",
+        title: "Success", 
         description: "Application updated successfully",
       });
     },
     onError: (error: any) => {
+      console.error("Failed to update application:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to update application",

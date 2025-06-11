@@ -272,19 +272,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/applications/:id/users', isAuthenticated, async (req: any, res) => {
     try {
       const applicationId = parseInt(req.params.id);
+      console.log(`Fetching users for application ${applicationId}`);
+      
       const application = await storage.getApplication(applicationId);
       
       if (!application) {
+        console.log(`Application ${applicationId} not found`);
         return res.status(404).json({ message: "Application not found" });
       }
 
       // Check if user owns this application
       const userId = req.user.claims.sub;
       if (application.userId !== userId) {
+        console.log(`Access denied for user ${userId} to application ${applicationId}`);
         return res.status(403).json({ message: "Access denied" });
       }
 
       const users = await storage.getAllAppUsers(applicationId);
+      console.log(`Found ${users.length} users for application ${applicationId}:`, users);
       res.json(users);
     } catch (error) {
       console.error("Error fetching application users:", error);
