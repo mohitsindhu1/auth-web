@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, LogIn, CheckCircle, AlertCircle } from "lucide-react";
+import { Shield, LogIn, CheckCircle, AlertCircle, Gamepad2, Zap, Users } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { auth, signInWithGoogle, handleRedirectResult } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import ParticleBackground from "@/components/ParticleBackground";
 
 const firebaseLoginSchema = z.object({});
 
