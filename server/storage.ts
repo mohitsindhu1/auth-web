@@ -1,4 +1,6 @@
 import { users, apiKeys, authSessions, type User, type InsertUser, type ApiKey, type InsertApiKey, type AuthSession } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { nanoid } from "nanoid";
 
@@ -28,154 +30,109 @@ export interface IStorage {
   hashPassword(password: string): Promise<string>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private apiKeys: Map<string, ApiKey>;
-  private sessions: Map<string, AuthSession>;
-  private currentUserId: number;
-  private currentApiKeyId: number;
-  private currentSessionId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.apiKeys = new Map();
-    this.sessions = new Map();
-    this.currentUserId = 1;
-    this.currentApiKeyId = 1;
-    this.currentSessionId = 1;
-    
-    // Create default API key
-    this.initializeDefaultData();
-  }
-
-  private async initializeDefaultData() {
-    // Create a default API key for testing
-    const defaultApiKey: ApiKey = {
-      id: this.currentApiKeyId++,
-      key: "test-api-key-123",
-      name: "Default Test Key",
-      isActive: true,
-      createdAt: new Date(),
-    };
-    this.apiKeys.set(defaultApiKey.key, defaultApiKey);
-    
-    // Create a test user
-    const hashedPassword = await this.hashPassword("password123");
-    const testUser: User = {
-      id: this.currentUserId++,
-      username: "testuser",
-      password: hashedPassword,
-      email: "test@example.com",
-      isActive: true,
-      createdAt: new Date(),
-      lastLogin: null,
-    };
-    this.users.set(testUser.id, testUser);
-  }
-
+export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.email === email,
-    );
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const hashedPassword = await this.hashPassword(insertUser.password);
-    const id = this.currentUserId++;
-    const user: User = {
-      ...insertUser,
-      id,
-      password: hashedPassword,
-      isActive: true,
-      createdAt: new Date(),
-      lastLogin: null,
-    };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...insertUser,
+        password: hashedPassword,
+      })
+      .returning();
     return user;
   }
 
   async updateUser(id: number, updates: Partial<User>): Promise<User | undefined> {
-    const user = this.users.get(id);
-    if (!user) return undefined;
-    
-    const updatedUser = { ...user, ...updates };
-    this.users.set(id, updatedUser);
-    return updatedUser;
+    const [user] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
   }
 
   async deleteUser(id: number): Promise<boolean> {
-    return this.users.delete(id);
+    const result = await db.delete(users).where(eq(users.id, id));
+    return (result.rowCount || 0) > 0;
   }
 
   async getAllUsers(): Promise<User[]> {
-    return Array.from(this.users.values());
+    return await db.select().from(users);
   }
 
   async getApiKey(key: string): Promise<ApiKey | undefined> {
-    return this.apiKeys.get(key);
+    const [apiKey] = await db.select().from(apiKeys).where(eq(apiKeys.key, key));
+    return apiKey || undefined;
   }
 
   async createApiKey(insertApiKey: InsertApiKey): Promise<ApiKey> {
-    const id = this.currentApiKeyId++;
     const key = `ak_${nanoid(32)}`;
-    const apiKey: ApiKey = {
-      id,
-      key,
-      name: insertApiKey.name,
-      isActive: true,
-      createdAt: new Date(),
-    };
-    this.apiKeys.set(key, apiKey);
+    const [apiKey] = await db
+      .insert(apiKeys)
+      .values({
+        ...insertApiKey,
+        key,
+      })
+      .returning();
     return apiKey;
   }
 
   async getAllApiKeys(): Promise<ApiKey[]> {
-    return Array.from(this.apiKeys.values());
+    return await db.select().from(apiKeys);
   }
 
   async deactivateApiKey(id: number): Promise<boolean> {
-    const apiKey = Array.from(this.apiKeys.values()).find(ak => ak.id === id);
-    if (!apiKey) return false;
-    
-    apiKey.isActive = false;
-    this.apiKeys.set(apiKey.key, apiKey);
-    return true;
+    const [apiKey] = await db
+      .update(apiKeys)
+      .set({ isActive: false })
+      .where(eq(apiKeys.id, id))
+      .returning();
+    return !!apiKey;
   }
 
   async createSession(userId: number): Promise<AuthSession> {
-    const id = this.currentSessionId++;
     const sessionToken = `st_${nanoid(32)}`;
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     
-    const session: AuthSession = {
-      id,
-      userId,
-      sessionToken,
-      expiresAt,
-      createdAt: new Date(),
-    };
+    const [session] = await db
+      .insert(authSessions)
+      .values({
+        userId,
+        sessionToken,
+        expiresAt,
+      })
+      .returning();
     
-    this.sessions.set(sessionToken, session);
     return session;
   }
 
   async getSession(token: string): Promise<AuthSession | undefined> {
-    const session = this.sessions.get(token);
+    const [session] = await db
+      .select()
+      .from(authSessions)
+      .where(eq(authSessions.sessionToken, token));
+    
     if (!session) return undefined;
     
     // Check if session is expired
     if (session.expiresAt < new Date()) {
-      this.sessions.delete(token);
+      await db.delete(authSessions).where(eq(authSessions.sessionToken, token));
       return undefined;
     }
     
@@ -183,7 +140,8 @@ export class MemStorage implements IStorage {
   }
 
   async deleteSession(token: string): Promise<boolean> {
-    return this.sessions.delete(token);
+    const result = await db.delete(authSessions).where(eq(authSessions.sessionToken, token));
+    return (result.rowCount || 0) > 0;
   }
 
   async validatePassword(plainPassword: string, hashedPassword: string): Promise<boolean> {
@@ -195,4 +153,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
