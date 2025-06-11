@@ -756,7 +756,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await webhookService.logAndNotify(
           application.userId,
           application.id,
-          'login_version_mismatch',
+          'version_mismatch',
           { username },
           { 
             success: false, 
@@ -901,7 +901,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!user.hwid) {
           await storage.updateAppUser(user.id, { hwid });
         } else if (user.hwid !== hwid) {
-          // HWID mismatch
+          // HWID mismatch - send webhook notification
+          await webhookService.logAndNotify(
+            application.userId,
+            application.id,
+            'hwid_mismatch',
+            user,
+            { 
+              success: false, 
+              errorMessage: `HWID mismatch: Expected ${user.hwid}, got ${hwid}`,
+              ipAddress,
+              userAgent,
+              hwid,
+              metadata: {
+                expected_hwid: user.hwid,
+                provided_hwid: hwid
+              }
+            }
+          );
+          
           return res.status(401).json({ 
             success: false, 
             message: application.hwidMismatchMessage || "Hardware ID mismatch detected!" 

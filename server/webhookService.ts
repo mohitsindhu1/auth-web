@@ -46,7 +46,10 @@ export class WebhookService {
       'account_expired': '⏰',
       'hwid_mismatch': '🔒',
       'version_mismatch': '🔄',
-      'account_disabled': '🚫'
+      'account_disabled': '🚫',
+      'login_blocked_ip': '🚫',
+      'login_blocked_username': '🚫',
+      'login_blocked_hwid': '🚫'
     };
 
     interface DiscordEmbedField {
