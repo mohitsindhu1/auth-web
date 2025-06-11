@@ -677,14 +677,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get client info
       const ipAddress = req.ip || req.connection.remoteAddress;
       const userAgent = req.headers['user-agent'];
-      
-      console.log(`Login attempt from IP: ${ipAddress}, Username: ${username}`);
 
       // Check blacklist - IP address
       if (ipAddress) {
-        console.log(`Checking IP blacklist for: ${ipAddress}`);
         const ipBlacklist = await storage.checkBlacklist(application.id, 'ip', ipAddress);
-        console.log(`IP blacklist result:`, ipBlacklist);
         if (ipBlacklist) {
           await webhookService.logAndNotify(
             application.userId,
