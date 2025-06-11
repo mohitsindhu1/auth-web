@@ -13,6 +13,7 @@ import Webhooks from "@/pages/webhooks";
 import Blacklist from "@/pages/blacklist";
 import ActivityLogs from "@/pages/activity-logs";
 import IntegrationExamples from "@/pages/integration-examples";
+import FirebaseLogin from "@/pages/firebase-login";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
@@ -33,7 +34,10 @@ function Router() {
   return (
     <Switch>
       {!isAuthenticated ? (
-        <Route path="/" component={Landing} />
+        <>
+          <Route path="/" component={Landing} />
+          <Route path="/firebase-login" component={FirebaseLogin} />
+        </>
       ) : (
         <>
           <Route path="/" component={Home} />

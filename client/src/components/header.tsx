@@ -192,7 +192,7 @@ export default function Header() {
             <Button variant="ghost" size="sm" onClick={toggleTheme}>
               {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </Button>
-            <Link href="/login">
+            <Link href="/firebase-login">
               <Button>
                 <LogIn className="h-4 w-4 mr-2" />
                 Sign In

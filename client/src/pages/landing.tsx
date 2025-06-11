@@ -7,7 +7,7 @@ export default function Landing() {
   const { theme, toggleTheme } = useTheme();
 
   const handleLogin = () => {
-    window.location.href = "/api/login";
+    window.location.href = "/firebase-login";
   };
 
   return (
