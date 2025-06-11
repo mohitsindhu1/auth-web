@@ -84,7 +84,6 @@ export default function AppManagement() {
     queryKey: ["/api/applications", appId, "users"],
     enabled: !!appId,
     staleTime: 0, // Always refetch
-    gcTime: 0, // Don't cache (gcTime replaces cacheTime in newer versions)
   });
 
   // Update edit form when application data loads
