@@ -1,25 +1,32 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { 
-  Building, 
-  Key, 
   Users, 
-  Server, 
-  FileText, 
+  Key, 
   Shield, 
   Plus, 
-  Eye,
-  Trash2,
-  Copy,
-  Activity,
-  Settings
+  Copy, 
+  Eye, 
+  EyeOff,
+  LogOut,
+  BarChart3,
+  Crown,
+  Moon,
+  Sun,
+  Trash2
 } from "lucide-react";
-import { Link, useLocation } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 
 interface ApiKey {
   id: number;
@@ -29,12 +36,13 @@ interface ApiKey {
   createdAt: string;
 }
 
-interface User {
+interface AppUser {
   id: number;
   username: string;
   email: string;
   isActive: boolean;
   createdAt: string;
+  lastLogin?: string;
 }
 
 interface DashboardStats {
@@ -45,328 +53,406 @@ interface DashboardStats {
 }
 
 export default function Dashboard() {
-  const [accountInfo, setAccountInfo] = useState<any>(null);
-  const [, setLocation] = useLocation();
+  const [isNewApiKeyDialogOpen, setIsNewApiKeyDialogOpen] = useState(false);
+  const [newApiKeyName, setNewApiKeyName] = useState("");
+  const [visibleKeys, setVisibleKeys] = useState<Set<number>>(new Set());
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const accountId = localStorage.getItem('account_id');
-    const email = localStorage.getItem('account_email');
-    const firebaseUid = localStorage.getItem('firebase_uid');
-    
-    if (!accountId) {
-      setLocation('/firebase-login');
-      return;
-    }
-    
-    setAccountInfo({ accountId, email, firebaseUid });
-  }, [setLocation]);
-
   // Fetch dashboard stats
-  const { data: stats = { totalUsers: 0, totalApiKeys: 0, activeApiKeys: 0, accountType: 'Basic' }, isLoading: statsLoading } = useQuery<DashboardStats>({
-    queryKey: ['/api/dashboard/stats'],
-    enabled: !!accountInfo?.accountId,
+  const { data: dashboardStats } = useQuery<DashboardStats>({
+    queryKey: ["/api/dashboard/stats"],
   });
 
   // Fetch API keys
-  const { data: apiKeys = [], isLoading: apiKeysLoading, refetch: refetchApiKeys } = useQuery<ApiKey[]>({
-    queryKey: ['/api/api-keys'],
-    enabled: !!accountInfo?.accountId,
+  const { data: apiKeys = [] } = useQuery<ApiKey[]>({
+    queryKey: ["/api/api-keys"],
   });
 
   // Fetch users
-  const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery<User[]>({
-    queryKey: ['/api/users'],
-    enabled: !!accountInfo?.accountId,
+  const { data: appUsers = [] } = useQuery<AppUser[]>({
+    queryKey: ["/api/users"],
   });
 
   // Create API key mutation
   const createApiKeyMutation = useMutation({
-    mutationFn: (data: { name: string }) => apiRequest('/api/api-keys', 'POST', data),
+    mutationFn: async (name: string) => {
+      return apiRequest("/api/api-keys", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+    },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      setNewApiKeyName("");
+      setIsNewApiKeyDialogOpen(false);
       toast({
         title: "Success",
-        description: "API key created successfully!",
+        description: "API key created successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/api-keys'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/stats'] });
     },
     onError: (error: any) => {
       toast({
         title: "Error",
         description: error.message || "Failed to create API key",
-        variant: "destructive"
+        variant: "destructive",
       });
-    }
+    },
   });
 
-  const handleCreateApiKey = () => {
-    const name = prompt("Enter API key name:");
-    if (name) {
-      createApiKeyMutation.mutate({ name });
+  // Delete API key mutation
+  const deleteApiKeyMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/api-keys/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/api-keys"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      toast({
+        title: "Success",
+        description: "API key deactivated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to deactivate API key",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const createApiKey = async () => {
+    if (!newApiKeyName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a name for the API key",
+        variant: "destructive"
+      });
+      return;
     }
+    createApiKeyMutation.mutate(newApiKeyName);
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
-      title: "Copied!",
+      title: "Copied",
       description: "API key copied to clipboard",
     });
   };
 
-  const handleSignOut = () => {
-    localStorage.removeItem('account_id');
-    localStorage.removeItem('account_email');
-    localStorage.removeItem('firebase_uid');
-    setLocation('/firebase-login');
+  const toggleKeyVisibility = (keyId: number) => {
+    const newVisibleKeys = new Set(visibleKeys);
+    if (newVisibleKeys.has(keyId)) {
+      newVisibleKeys.delete(keyId);
+    } else {
+      newVisibleKeys.add(keyId);
+    }
+    setVisibleKeys(newVisibleKeys);
   };
 
-  if (!accountInfo) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
+  const maskKey = (key: string, isVisible: boolean) => {
+    if (isVisible) return key;
+    return key.substring(0, 8) + "•".repeat(20) + key.substring(key.length - 4);
+  };
+
+  const handleLogout = () => {
+    window.location.href = '/api/logout';
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Professional Header */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/" className="flex items-center space-x-3">
-                <Shield className="h-8 w-8 primary-color" />
-                <span className="text-2xl font-bold text-gray-900">AuthAPI</span>
-              </Link>
-              <Badge className="bg-primary text-white">
-                <Building className="h-3 w-3 mr-1" />
-                Enterprise
-              </Badge>
+    <div className="min-h-screen bg-background">
+      {/* Navigation */}
+      <nav className="phantom-nav fixed w-full top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center">
+              <Shield className="h-8 w-8 phantom-text mr-3" />
+              <span className="text-xl font-bold text-foreground">Phantom Auth</span>
             </div>
-            
             <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <p className="text-sm text-gray-600">Logged in as</p>
-                <p className="font-semibold primary-color">{accountInfo.email}</p>
-              </div>
               <Button
-                onClick={handleSignOut}
-                variant="outline"
-                className="border-red-500 text-red-600 hover:bg-red-50"
+                variant="ghost"
+                size="icon"
+                onClick={toggleTheme}
+                className="text-foreground hover:text-primary"
               >
-                Sign Out
+                {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
               </Button>
             </div>
           </div>
         </div>
-      </div>
+      </nav>
 
-      {/* Dashboard Content */}
-      <div className="relative z-10 container mx-auto px-4 py-8">
-        {/* Welcome Section */}
+      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 pt-24">
+        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">
-            Welcome to your <span className="neon-text">Gaming Server</span>
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            Manage your authentication arena, users, and API keys
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard</h1>
+              <p className="text-muted-foreground">
+                Welcome back, {user?.firstName || user?.email || 'User'}
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Crown className="h-5 w-5 text-yellow-500" />
+              <Badge variant="secondary" className="text-sm font-medium">
+                {dashboardStats?.accountType || 'Premium'}
+              </Badge>
+            </div>
+          </div>
         </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="gaming-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Users</p>
-                  <p className="text-3xl font-bold text-neon-green">
-                    {statsLoading ? "..." : stats.totalUsers}
-                  </p>
-                </div>
-                <Users className="h-8 w-8 text-neon-green" />
-              </div>
+          <Card className="phantom-stats-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardStats?.totalUsers || 0}</div>
+              <p className="text-xs text-muted-foreground">Registered users</p>
             </CardContent>
           </Card>
 
-          <Card className="gaming-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">API Keys</p>
-                  <p className="text-3xl font-bold text-neon-blue">
-                    {statsLoading ? "..." : stats.totalApiKeys}
-                  </p>
-                </div>
-                <Key className="h-8 w-8 text-neon-blue" />
-              </div>
+          <Card className="phantom-stats-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">API Keys</CardTitle>
+              <Key className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{dashboardStats?.totalApiKeys || 0}</div>
+              <p className="text-xs text-muted-foreground">Total generated</p>
             </CardContent>
           </Card>
 
-          <Card className="gaming-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Active Keys</p>
-                  <p className="text-3xl font-bold text-neon-purple">
-                    {statsLoading ? "..." : stats.activeApiKeys}
-                  </p>
-                </div>
-                <Shield className="h-8 w-8 text-neon-purple" />
-              </div>
+          <Card className="phantom-stats-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Keys</CardTitle>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold success-color">{dashboardStats?.activeApiKeys || 0}</div>
+              <p className="text-xs text-muted-foreground">Currently active</p>
             </CardContent>
           </Card>
 
-          <Card className="gaming-card">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Server Status</p>
-                  <p className="text-3xl font-bold text-neon-green">Online</p>
-                </div>
-                <Server className="h-8 w-8 text-neon-green pulse-animation" />
-              </div>
+          <Card className="phantom-stats-card">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Activity</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">99.9%</div>
+              <p className="text-xs text-muted-foreground">Uptime this month</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* API Keys Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card className="gaming-card">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center">
-                  <Key className="h-5 w-5 mr-2 text-neon-blue" />
-                  API Keys
-                </CardTitle>
-                <Button
-                  onClick={handleCreateApiKey}
-                  className="gaming-button"
-                  disabled={createApiKeyMutation.isPending}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Key
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {apiKeysLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : apiKeys.length === 0 ? (
-                <div className="text-center py-8">
-                  <Key className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No API keys created yet</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {apiKeys.slice(0, 3).map((key: ApiKey) => (
-                    <div key={key.id} className="gaming-card bg-gradient-to-r from-purple-900/10 to-blue-900/10 p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-neon-blue">{key.name}</h4>
-                          <p className="text-sm text-muted-foreground font-mono">
-                            {key.key.substring(0, 20)}...
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Badge variant={key.isActive ? "default" : "secondary"}>
-                            {key.isActive ? "Active" : "Inactive"}
-                          </Badge>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => copyToClipboard(key.key)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
+        {/* Main Content */}
+        <Tabs defaultValue="api-keys" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
+          </TabsList>
+
+          {/* API Keys Tab */}
+          <TabsContent value="api-keys">
+            <Card className="phantom-card">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>API Keys</CardTitle>
+                    <CardDescription>
+                      Manage your API keys for authentication
+                    </CardDescription>
+                  </div>
+                  <Dialog open={isNewApiKeyDialogOpen} onOpenChange={setIsNewApiKeyDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="phantom-button">
+                        <Plus className="h-4 w-4 mr-2" />
+                        New API Key
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Create New API Key</DialogTitle>
+                        <DialogDescription>
+                          Give your API key a descriptive name to help you identify it later.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="name" className="text-right">
+                            Name
+                          </Label>
+                          <Input
+                            id="name"
+                            value={newApiKeyName}
+                            onChange={(e) => setNewApiKeyName(e.target.value)}
+                            className="col-span-3"
+                            placeholder="e.g., Production API"
+                          />
                         </div>
                       </div>
-                    </div>
-                  ))}
+                      <DialogFooter>
+                        <Button 
+                          onClick={createApiKey} 
+                          className="phantom-button"
+                          disabled={createApiKeyMutation.isPending}
+                        >
+                          {createApiKeyMutation.isPending ? "Creating..." : "Create API Key"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent>
+                {apiKeys.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Key className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No API Keys</h3>
+                    <p className="text-muted-foreground mb-4">Create your first API key to get started</p>
+                    <Button 
+                      onClick={() => setIsNewApiKeyDialogOpen(true)}
+                      className="phantom-button"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create API Key
+                    </Button>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Key</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {apiKeys.map((key: ApiKey) => (
+                        <TableRow key={key.id}>
+                          <TableCell className="font-medium">{key.name}</TableCell>
+                          <TableCell className="font-mono text-sm">
+                            {maskKey(key.key, visibleKeys.has(key.id))}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant={key.isActive ? "default" : "secondary"}>
+                              {key.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {new Date(key.createdAt).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleKeyVisibility(key.id)}
+                              >
+                                {visibleKeys.has(key.id) ? (
+                                  <EyeOff className="h-4 w-4" />
+                                ) : (
+                                  <Eye className="h-4 w-4" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => copyToClipboard(key.key)}
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteApiKeyMutation.mutate(key.id)}
+                                disabled={deleteApiKeyMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-          {/* Users Section */}
-          <Card className="gaming-card">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Users className="h-5 w-5 mr-2 text-neon-green" />
-                Recent Users
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {usersLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : users.length === 0 ? (
-                <div className="text-center py-8">
-                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No users registered yet</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {users.slice(0, 5).map((user: User) => (
-                    <div key={user.id} className="gaming-card bg-gradient-to-r from-green-900/10 to-blue-900/10 p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="font-semibold text-neon-green">{user.username}</h4>
-                          <p className="text-sm text-muted-foreground">{user.email}</p>
-                        </div>
-                        <Badge variant={user.isActive ? "default" : "secondary"}>
-                          {user.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mt-8">
-          <Card className="gaming-card">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Zap className="h-5 w-5 mr-2 text-neon-purple" />
-                Quick Actions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Link href="/api-docs">
-                  <Button className="w-full gaming-button">
-                    <Eye className="h-4 w-4 mr-2" />
-                    View API Docs
-                  </Button>
-                </Link>
-                <Link href="/test-login">
-                  <Button className="w-full gaming-button">
-                    <Shield className="h-4 w-4 mr-2" />
-                    Test Authentication
-                  </Button>
-                </Link>
-                <Button 
-                  className="w-full gaming-button"
-                  onClick={() => window.open('https://console.firebase.google.com/', '_blank')}
-                >
-                  <Server className="h-4 w-4 mr-2" />
-                  Firebase Console
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          {/* Users Tab */}
+          <TabsContent value="users">
+            <Card className="phantom-card">
+              <CardHeader>
+                <CardTitle>Users</CardTitle>
+                <CardDescription>
+                  Users created through your API
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {appUsers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-foreground mb-2">No Users</h3>
+                    <p className="text-muted-foreground">Users will appear here when they register through your API</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Username</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Last Login</TableHead>
+                        <TableHead>Joined</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {appUsers.map((user: AppUser) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.username}</TableCell>
+                          <TableCell>{user.email}</TableCell>
+                          <TableCell>
+                            <Badge variant={user.isActive ? "default" : "secondary"}>
+                              {user.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            {user.lastLogin 
+                              ? new Date(user.lastLogin).toLocaleDateString()
+                              : "Never"
+                            }
+                          </TableCell>
+                          <TableCell>
+                            {new Date(user.createdAt).toLocaleDateString()}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
