@@ -57,22 +57,22 @@ public class AuthResponse
 {
     [JsonPropertyName("success")]
     public bool Success { get; set; }
-    
+
     [JsonPropertyName("message")]
     public string Message { get; set; }
-    
+
     [JsonPropertyName("user_id")]
     public int UserId { get; set; }  // FIXED: No longer nullable
-    
+
     [JsonPropertyName("username")]
     public string Username { get; set; }
-    
+
     [JsonPropertyName("email")]
     public string Email { get; set; }
-    
+
     [JsonPropertyName("expires_at")]
     public DateTime? ExpiresAt { get; set; }
-    
+
     [JsonPropertyName("hwid_locked")]
     public bool? HwidLocked { get; set; }
 }
@@ -82,10 +82,10 @@ public class SessionResponse
 {
     [JsonPropertyName("success")]
     public bool Success { get; set; }
-    
+
     [JsonPropertyName("message")]
     public string Message { get; set; }
-    
+
     [JsonPropertyName("session_token")]
     public string SessionToken { get; set; }
 }
@@ -97,6 +97,7 @@ public class UserInfo
     public string Username { get; set; }
     public string Email { get; set; }
     public DateTime LoginTime { get; set; } = DateTime.Now;
+    public DateTime? ExpiresAt { get; set; }
 }
 
 // Auth API Client
@@ -198,7 +199,7 @@ public partial class LoginForm : Form
     private TextBox txtPassword;
     private Button btnLogin;
     private Label lblStatus;
-    
+
     // Session monitoring variables
     private System.Windows.Forms.Timer sessionTimer;
     private System.Windows.Forms.Timer heartbeatTimer;
@@ -242,36 +243,37 @@ public partial class LoginForm : Form
             lblStatus.ForeColor = System.Drawing.Color.Blue;
 
             string hwid = GetHardwareId();
-            
+
             var loginResult = await _authClient.LoginAsync(txtUsername.Text, txtPassword.Text, "${selectedApplication?.version || "1.0.0"}", hwid);
-            
+
             if (loginResult.Success)
             {
                 lblStatus.Text = loginResult.Message;
                 lblStatus.ForeColor = System.Drawing.Color.Green;
-                
+
                 MessageBox.Show(loginResult.Message, "Login Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                
+
                 // FIXED: No more .Value needed since UserId is now int, not int?
                 var verifyResult = await _authClient.VerifyAsync(loginResult.UserId);
                 if (verifyResult.Success)
                 {
                     Console.WriteLine("User session verified successfully!");
-                    
+
                     this.Hide();
-                    
+
                     // Create UserInfo first
                     var userInfo = new UserInfo
                     {
                         UserId = loginResult.UserId,  // FIXED: No .Value needed
                         Username = loginResult.Username,
-                        Email = loginResult.Email
+                        Email = loginResult.Email,
+                        ExpiresAt = loginResult.ExpiresAt
                     };
-                    
+
                     // Pass UserInfo to MainForm constructor
                     var mainForm = new MainForm(userInfo);
                     mainForm.Show();
-                    
+
                     // Start enhanced session monitoring
                     StartSessionMonitoring(loginResult.UserId);  // FIXED: No .Value needed
                 }
@@ -279,7 +281,7 @@ public partial class LoginForm : Form
                 {
                     MessageBox.Show("Session verification failed. Please try logging in again.", 
                                   "Security Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    
+
                     txtUsername.Clear();
                     txtPassword.Clear();
                     txtUsername.Focus();
@@ -289,7 +291,7 @@ public partial class LoginForm : Form
             {
                 lblStatus.Text = loginResult.Message;
                 lblStatus.ForeColor = System.Drawing.Color.Red;
-                
+
                 MessageBox.Show(loginResult.Message, "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -310,7 +312,7 @@ public partial class LoginForm : Form
         currentUserId = userId;
         sessionCheckFailures = 0;
         currentSessionToken = GenerateSessionToken();
-        
+
         // Start session tracking on server
         Task.Run(async () => {
             try 
@@ -326,19 +328,19 @@ public partial class LoginForm : Form
                 Console.WriteLine($"Failed to start session: {ex.Message}");
             }
         });
-        
+
         // Session verification every 5 minutes
         sessionTimer = new System.Windows.Forms.Timer();
         sessionTimer.Interval = 300000; // 5 minutes
         sessionTimer.Tick += async (s, e) => await VerifySessionPeriodically();
         sessionTimer.Start();
-        
+
         // Heartbeat every 30 seconds
         heartbeatTimer = new System.Windows.Forms.Timer();
         heartbeatTimer.Interval = 30000; // 30 seconds
         heartbeatTimer.Tick += async (s, e) => await SendHeartbeat();
         heartbeatTimer.Start();
-        
+
         Console.WriteLine("Session monitoring started successfully");
     }
 
@@ -358,7 +360,7 @@ public partial class LoginForm : Form
             {
                 sessionCheckFailures++;
                 Console.WriteLine($"Session verification failed ({sessionCheckFailures}/{maxFailures})");
-                
+
                 if (sessionCheckFailures >= maxFailures)
                 {
                     await ForceLogout("Your session has expired. Please login again.");
@@ -410,16 +412,16 @@ public partial class LoginForm : Form
                 Console.WriteLine($"Failed to end session: {ex.Message}");
             }
         }
-        
+
         // Stop timers
         sessionTimer?.Stop();
         sessionTimer?.Dispose();
         heartbeatTimer?.Stop();
         heartbeatTimer?.Dispose();
-        
+
         // Show message and return to login
         MessageBox.Show(reason, "Session Expired", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        
+
         if (this.InvokeRequired)
         {
             this.Invoke(new Action(() => {
@@ -437,7 +439,7 @@ public partial class LoginForm : Form
         // Convert FormCollection to array without LINQ Cast
         Form[] openForms = new Form[Application.OpenForms.Count];
         Application.OpenForms.CopyTo(openForms, 0);
-        
+
         foreach (Form form in openForms)
         {
             if (form.Name == "MainForm" || form.GetType().Name == "MainForm")
@@ -446,14 +448,14 @@ public partial class LoginForm : Form
                 form.Close();
             }
         }
-        
+
         this.Show();
         this.WindowState = FormWindowState.Normal;
         this.BringToFront();
         txtUsername.Clear();
         txtPassword.Clear();
         txtUsername.Focus();
-        
+
         // Clear session data
         currentSessionToken = null;
         currentUserId = 0;
@@ -517,10 +519,10 @@ public class MainForm : Form
         this.Text = "Main Application - User: " + (UserData?.Username ?? "Unknown");
         this.Size = new System.Drawing.Size(600, 400);
         this.StartPosition = FormStartPosition.CenterScreen;
-        
+
         var welcomeLabel = new Label
         {
-            Text = $"Welcome to the application!\\n\\nUser ID: {UserData?.UserId}\\nUsername: {UserData?.Username}\\nLogin Time: {UserData?.LoginTime:yyyy-MM-dd HH:mm:ss}",
+            Text = $"Welcome to the application!\\n\\nUser ID: {UserData?.UserId}\\nUsername: {UserData?.Username}\\nLogin Time: {UserData?.LoginTime:yyyy-MM-dd HH:mm:ss}\\nExpires At: {UserData?.ExpiresAt:yyyy-MM-dd HH:mm:ss}",
             Location = new System.Drawing.Point(50, 50),
             Size = new System.Drawing.Size(500, 200),
             Font = new System.Drawing.Font("Arial", 12)
@@ -568,7 +570,7 @@ FEATURES INCLUDED:
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
-      
+
       <main className="flex-1 container py-8">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
@@ -629,7 +631,7 @@ FEATURES INCLUDED:
               <TabsTrigger value="python">Python</TabsTrigger>
               <TabsTrigger value="nodejs">Node.js</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="csharp" className="space-y-4">
               <Card>
                 <CardHeader>
@@ -658,7 +660,7 @@ FEATURES INCLUDED:
                         Copy Code
                       </Button>
                     </div>
-                    
+
                     <div className="relative">
                       <Textarea
                         value={csharpLoginExample}

@@ -8,28 +8,29 @@ using System.Windows.Forms;
 using System.Management;
 using System.Security.Cryptography;
 using System.Linq;
+using System.Drawing;
 
 // FIXED AuthResponse Class - This fixes your "nullable value" error
 public class AuthResponse
 {
     [JsonPropertyName("success")]
     public bool Success { get; set; }
-    
+
     [JsonPropertyName("message")]
     public string Message { get; set; }
-    
+
     [JsonPropertyName("user_id")]
     public int UserId { get; set; }  // FIXED: Changed from int? to int (no more nullable!)
-    
+
     [JsonPropertyName("username")]
     public string Username { get; set; }
-    
+
     [JsonPropertyName("email")]
     public string Email { get; set; }
-    
+
     [JsonPropertyName("expires_at")]
     public DateTime? ExpiresAt { get; set; }
-    
+
     [JsonPropertyName("hwid_locked")]
     public bool? HwidLocked { get; set; }
 }
@@ -39,10 +40,10 @@ public class SessionResponse
 {
     [JsonPropertyName("success")]
     public bool Success { get; set; }
-    
+
     [JsonPropertyName("message")]
     public string Message { get; set; }
-    
+
     [JsonPropertyName("session_token")]
     public string SessionToken { get; set; }
 }
@@ -146,7 +147,7 @@ public partial class LoginForm : Form
     private TextBox txtPassword;
     private Button btnLogin;
     private Label lblStatus;
-    
+
     // Session monitoring variables
     private System.Windows.Forms.Timer sessionTimer;
     private System.Windows.Forms.Timer heartbeatTimer;
@@ -190,41 +191,49 @@ public partial class LoginForm : Form
             lblStatus.ForeColor = System.Drawing.Color.Blue;
 
             string hwid = GetHardwareId();
-            
+
             var loginResult = await _authClient.LoginAsync(txtUsername.Text, txtPassword.Text, "1.0.0", hwid);
-            
+
             if (loginResult.Success)
             {
-                lblStatus.Text = loginResult.Message;
+                string expiryInfo = "";
+                if (loginResult.ExpiresAt.HasValue)
+                {
+                    expiryInfo = $"\nAccount expires: {loginResult.ExpiresAt.Value:yyyy-MM-dd HH:mm:ss}";
+                }
+
+                lblStatus.Text = loginResult.Message + expiryInfo;
                 lblStatus.ForeColor = System.Drawing.Color.Green;
-                
+
                 MessageBox.Show(loginResult.Message, "Login Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                
+
                 // FIXED: No more .Value needed since UserId is now int, not int?
                 var verifyResult = await _authClient.VerifyAsync(loginResult.UserId);
                 if (verifyResult.Success)
                 {
                     Console.WriteLine("User session verified successfully!");
-                    
+
                     this.Hide();
-                    
+
                     var mainForm = new MainForm();
                     mainForm.UserData = new UserInfo
                     {
                         UserId = loginResult.UserId,  // FIXED: No .Value needed
                         Username = loginResult.Username,
-                        Email = loginResult.Email
+                        Email = loginResult.Email,
+                        ExpiresAt = loginResult.ExpiresAt
                     };
+                    Program.CurrentUserId = loginResult.UserId;
                     mainForm.Show();
-                    
+
                     // Start enhanced session monitoring
                     StartSessionMonitoring(loginResult.UserId);  // FIXED: No .Value needed
                 }
                 else
                 {
-                    MessageBox.Show("Session verification failed. Please try logging in again.", 
+                    MessageBox.Show("Session verification failed. Please try logging in again.",
                                   "Security Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    
+
                     txtUsername.Clear();
                     txtPassword.Clear();
                     txtUsername.Focus();
@@ -234,9 +243,9 @@ public partial class LoginForm : Form
             {
                 lblStatus.Text = loginResult.Message;
                 lblStatus.ForeColor = System.Drawing.Color.Red;
-                
+
                 MessageBox.Show(loginResult.Message, "Login Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                
+
                 HandleLoginError(loginResult.Message);
             }
         }
@@ -256,24 +265,24 @@ public partial class LoginForm : Form
     {
         if (errorMessage.ToLower().Contains("disabled"))
         {
-            MessageBox.Show("Your account has been disabled. Please contact support.", 
+            MessageBox.Show("Your account has been disabled. Please contact support.",
                           "Account Disabled", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             Application.Exit();
         }
         else if (errorMessage.ToLower().Contains("expired"))
         {
-            MessageBox.Show("Your subscription has expired. Please renew to continue.", 
+            MessageBox.Show("Your subscription has expired. Please renew to continue.",
                           "Subscription Expired", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         else if (errorMessage.ToLower().Contains("version"))
         {
-            MessageBox.Show("Your application version is outdated. Please download the latest version.", 
+            MessageBox.Show("Your application version is outdated. Please download the latest version.",
                           "Version Mismatch", MessageBoxButtons.OK, MessageBoxIcon.Information);
             Application.Exit();
         }
         else if (errorMessage.ToLower().Contains("hwid") || errorMessage.ToLower().Contains("hardware"))
         {
-            MessageBox.Show("Hardware ID mismatch detected. Please contact support.", 
+            MessageBox.Show("Hardware ID mismatch detected. Please contact support.",
                           "Device Mismatch", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
     }
@@ -283,10 +292,10 @@ public partial class LoginForm : Form
         currentUserId = userId;
         sessionCheckFailures = 0;
         currentSessionToken = GenerateSessionToken();
-        
+
         // Start session tracking on server
         Task.Run(async () => {
-            try 
+            try
             {
                 var sessionResult = await _authClient.StartSessionAsync(userId, currentSessionToken);
                 if (sessionResult.Success)
@@ -299,19 +308,19 @@ public partial class LoginForm : Form
                 Console.WriteLine($"Failed to start session: {ex.Message}");
             }
         });
-        
+
         // Session verification every 5 minutes
         sessionTimer = new System.Windows.Forms.Timer();
         sessionTimer.Interval = 300000; // 5 minutes
         sessionTimer.Tick += async (s, e) => await VerifySessionPeriodically();
         sessionTimer.Start();
-        
+
         // Heartbeat every 30 seconds
         heartbeatTimer = new System.Windows.Forms.Timer();
         heartbeatTimer.Interval = 30000; // 30 seconds
         heartbeatTimer.Tick += async (s, e) => await SendHeartbeat();
         heartbeatTimer.Start();
-        
+
         Console.WriteLine("Session monitoring started successfully");
     }
 
@@ -331,7 +340,7 @@ public partial class LoginForm : Form
             {
                 sessionCheckFailures++;
                 Console.WriteLine($"Session verification failed ({sessionCheckFailures}/{maxFailures})");
-                
+
                 if (sessionCheckFailures >= maxFailures)
                 {
                     await ForceLogout("Your session has expired. Please login again.");
@@ -341,7 +350,7 @@ public partial class LoginForm : Form
             {
                 sessionCheckFailures = 0;
                 Console.WriteLine($"Session verified at {DateTime.Now:HH:mm:ss}");
-                
+
                 if (verifyResult.Message.Contains("disabled") || verifyResult.Message.Contains("expired"))
                 {
                     await ForceLogout(verifyResult.Message);
@@ -396,16 +405,16 @@ public partial class LoginForm : Form
                 Console.WriteLine($"Failed to end session: {ex.Message}");
             }
         }
-        
+
         // Stop timers
         sessionTimer?.Stop();
         sessionTimer?.Dispose();
         heartbeatTimer?.Stop();
         heartbeatTimer?.Dispose();
-        
+
         // Show message and return to login
         MessageBox.Show(reason, "Session Expired", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        
+
         if (this.InvokeRequired)
         {
             this.Invoke(new Action(() => {
@@ -428,14 +437,14 @@ public partial class LoginForm : Form
                 form.Close();
             }
         }
-        
+
         this.Show();
         this.WindowState = FormWindowState.Normal;
         this.BringToFront();
         txtUsername.Clear();
         txtPassword.Clear();
         txtUsername.Focus();
-        
+
         // Clear session data
         currentSessionToken = null;
         currentUserId = 0;
@@ -495,6 +504,7 @@ public class UserInfo
     public string Username { get; set; }
     public string Email { get; set; }
     public DateTime LoginTime { get; set; } = DateTime.Now;
+    public DateTime? ExpiresAt { get; set; }
 }
 
 // Sample MainForm class
@@ -504,15 +514,75 @@ public class MainForm : Form
 
     public MainForm()
     {
-        this.Text = "Main Application";
+        InitializeComponent();
+        this.Text = "Main Application - Authenticated";
         this.Size = new System.Drawing.Size(600, 400);
         this.StartPosition = FormStartPosition.CenterScreen;
+
+        var lblWelcome = new Label
+        {
+            Text = "Welcome! You are authenticated.",
+            Location = new System.Drawing.Point(50, 50),
+            Size = new System.Drawing.Size(400, 23),
+            Font = new System.Drawing.Font("Arial", 12, System.Drawing.FontStyle.Bold)
+        };
+
+        var lblExpiry = new Label
+        {
+            Text = "Loading account information...",
+            Location = new System.Drawing.Point(50, 80),
+            Size = new System.Drawing.Size(500, 23),
+            ForeColor = Color.DarkBlue
+        };
+
+        this.Controls.Add(lblWelcome);
+        this.Controls.Add(lblExpiry);
+
+        // Load and display user expiry information
+        LoadUserExpiryInfo(lblExpiry);
+    }
+
+    private async void LoadUserExpiryInfo(Label lblExpiry)
+    {
+        try
+        {
+            // Get user info from verify endpoint which includes expiry
+            var authClient = new AuthApiClient("YOUR_API_KEY", "YOUR_BASE_URL");
+            var verifyResponse = await authClient.VerifyAsync(Program.CurrentUserId);
+
+            if (verifyResponse.Success && UserData.ExpiresAt.HasValue)
+            {
+                var daysLeft = (UserData.ExpiresAt.Value - DateTime.Now).Days;
+                if (daysLeft > 0)
+                {
+                    lblExpiry.Text = $"Account expires: {UserData.ExpiresAt.Value:yyyy-MM-dd} ({daysLeft} days left)";
+                    lblExpiry.ForeColor = daysLeft > 7 ? Color.Green : Color.Orange;
+                }
+                else
+                {
+                    lblExpiry.Text = "Account has expired!";
+                    lblExpiry.ForeColor = Color.Red;
+                }
+            }
+            else
+            {
+                lblExpiry.Text = "No expiry date set (Lifetime access)";
+                lblExpiry.ForeColor = Color.Green;
+            }
+        }
+        catch (Exception ex)
+        {
+            lblExpiry.Text = $"Error loading expiry info: {ex.Message}";
+            lblExpiry.ForeColor = Color.Red;
+        }
     }
 }
 
 // Program entry point
 class Program
 {
+    public static int CurrentUserId { get; set; }
+
     [STAThread]
     static void Main()
     {
