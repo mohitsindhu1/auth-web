@@ -8,8 +8,7 @@ import { Form } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, LogIn, CheckCircle, Info, Users, Building, Globe } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { auth, signInWithGoogle, handleRedirectResult } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { auth, signInWithGoogle, handleRedirectResult, onAuthStateChange } from "@/lib/firebase";
 
 const firebaseLoginSchema = z.object({});
 
