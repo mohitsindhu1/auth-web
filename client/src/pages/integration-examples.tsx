@@ -47,7 +47,186 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Management;
+using System.Security.Cryptography;
 
+// Complete WinForms Login Form Implementation
+public partial class LoginForm : Form
+{
+    private AuthApiClient _authClient;
+    private TextBox txtUsername;
+    private TextBox txtPassword;
+    private Button btnLogin;
+    private Label lblStatus;
+
+    public LoginForm()
+    {
+        InitializeComponent();
+        _authClient = new AuthApiClient("${apiKey}");
+    }
+
+    private void InitializeComponent()
+    {
+        this.Text = "Application Login";
+        this.Size = new System.Drawing.Size(400, 300);
+        this.StartPosition = FormStartPosition.CenterScreen;
+
+        // Username
+        var lblUsername = new Label { Text = "Username:", Location = new System.Drawing.Point(50, 50), Size = new System.Drawing.Size(80, 23) };
+        txtUsername = new TextBox { Location = new System.Drawing.Point(140, 50), Size = new System.Drawing.Size(200, 23) };
+
+        // Password
+        var lblPassword = new Label { Text = "Password:", Location = new System.Drawing.Point(50, 90), Size = new System.Drawing.Size(80, 23) };
+        txtPassword = new TextBox { Location = new System.Drawing.Point(140, 90), Size = new System.Drawing.Size(200, 23), UseSystemPasswordChar = true };
+
+        // Login Button
+        btnLogin = new Button { Text = "Login", Location = new System.Drawing.Point(140, 130), Size = new System.Drawing.Size(100, 30) };
+        btnLogin.Click += async (s, e) => await LoginAsync();
+
+        // Status Label
+        lblStatus = new Label { Location = new System.Drawing.Point(50, 180), Size = new System.Drawing.Size(300, 60), ForeColor = System.Drawing.Color.Red };
+
+        this.Controls.AddRange(new Control[] { lblUsername, txtUsername, lblPassword, txtPassword, btnLogin, lblStatus });
+    }
+
+    private async Task LoginAsync()
+    {
+        try
+        {
+            btnLogin.Enabled = false;
+            lblStatus.Text = "Authenticating...";
+            lblStatus.ForeColor = System.Drawing.Color.Blue;
+
+            // Get HWID for hardware locking
+            string hwid = GetHardwareId();
+            
+            var loginResult = await _authClient.LoginAsync(
+                txtUsername.Text, 
+                txtPassword.Text, 
+                "${selectedApplication?.version || "1.0.0"}", 
+                hwid
+            );
+            
+            if (loginResult.Success)
+            {
+                // Display custom success message from your application settings
+                lblStatus.Text = loginResult.Message;
+                lblStatus.ForeColor = System.Drawing.Color.Green;
+                
+                // Show success message box with custom message
+                MessageBox.Show(
+                    loginResult.Message, 
+                    "Login Successful", 
+                    MessageBoxButtons.OK, 
+                    MessageBoxIcon.Information
+                );
+                
+                // Verify user session
+                var verifyResult = await _authClient.VerifyAsync(loginResult.UserId.Value);
+                if (verifyResult.Success)
+                {
+                    // Hide login form and show main application
+                    this.Hide();
+                    var mainForm = new MainForm();
+                    mainForm.Show();
+                }
+            }
+            else
+            {
+                // Display custom error message from your application settings
+                lblStatus.Text = loginResult.Message;
+                lblStatus.ForeColor = System.Drawing.Color.Red;
+                
+                // Show error message box with custom message
+                MessageBox.Show(
+                    loginResult.Message, 
+                    "Login Failed", 
+                    MessageBoxButtons.OK, 
+                    MessageBoxIcon.Error
+                );
+                
+                // Handle specific error types based on the custom messages
+                HandleLoginError(loginResult.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            lblStatus.Text = $"Connection error: {ex.Message}";
+            lblStatus.ForeColor = System.Drawing.Color.Red;
+            MessageBox.Show($"Network error: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            btnLogin.Enabled = true;
+        }
+    }
+
+    private void HandleLoginError(string errorMessage)
+    {
+        // Handle different error types based on your custom messages
+        if (errorMessage.ToLower().Contains("disabled"))
+        {
+            // Custom account disabled message - user can configure this message
+            MessageBox.Show("Your account has been disabled. Please contact our support team.", 
+                          "Account Disabled", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            Application.Exit();
+        }
+        else if (errorMessage.ToLower().Contains("expired"))
+        {
+            // Custom account expired message - user can configure this message
+            MessageBox.Show("Your subscription has expired. Please renew to continue using the application.", 
+                          "Subscription Expired", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            System.Diagnostics.Process.Start("https://yourwebsite.com/renew");
+        }
+        else if (errorMessage.ToLower().Contains("version"))
+        {
+            // Custom version mismatch message - user can configure this message
+            MessageBox.Show("Your application version is outdated. Please download the latest version.", 
+                          "Version Mismatch", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            System.Diagnostics.Process.Start("https://yourwebsite.com/download");
+            Application.Exit();
+        }
+        else if (errorMessage.ToLower().Contains("hwid") || errorMessage.ToLower().Contains("hardware"))
+        {
+            // Custom HWID mismatch message - user can configure this message
+            MessageBox.Show("Hardware ID mismatch detected. Please contact support to reset your device binding.", 
+                          "Device Mismatch", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private string GetHardwareId()
+    {
+        try
+        {
+            var mc = new ManagementClass("win32_processor");
+            var moc = mc.GetInstances();
+            string cpuId = "";
+            foreach (ManagementObject mo in moc)
+            {
+                cpuId = mo.Properties["processorID"].Value.ToString();
+                break;
+            }
+
+            var drive = new ManagementObject(@"win32_logicaldisk.deviceid=""C:""");
+            drive.Get();
+            string volumeSerial = drive["VolumeSerialNumber"].ToString();
+
+            string combined = cpuId + volumeSerial;
+            using (var sha256 = SHA256.Create())
+            {
+                byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(combined));
+                return Convert.ToBase64String(hash);
+            }
+        }
+        catch
+        {
+            return Environment.MachineName + Environment.UserName;
+        }
+    }
+}
+
+// Auth API Client Class
 public class AuthApiClient
 {
     private readonly HttpClient _httpClient;
@@ -84,28 +263,6 @@ public class AuthApiClient
         });
     }
 
-    public async Task<AuthResponse> RegisterAsync(string username, string password, string email = null, DateTime? expiresAt = null)
-    {
-        var registerData = new
-        {
-            username,
-            password,
-            email,
-            expiresAt = expiresAt?.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-        };
-
-        var json = JsonSerializer.Serialize(registerData);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var response = await _httpClient.PostAsync($"{_baseUrl}/api/v1/register", content);
-        var responseJson = await response.Content.ReadAsStringAsync();
-
-        return JsonSerializer.Deserialize<AuthResponse>(responseJson, new JsonSerializerOptions
-        {
-            PropertyNameCaseInsensitive = true
-        });
-    }
-
     public async Task<AuthResponse> VerifyAsync(int userId)
     {
         var verifyData = new { user_id = userId };
@@ -125,7 +282,7 @@ public class AuthApiClient
 public class AuthResponse
 {
     public bool Success { get; set; }
-    public string Message { get; set; }
+    public string Message { get; set; }  // This contains your custom messages!
     public int? UserId { get; set; }
     public string Username { get; set; }
     public string Email { get; set; }
@@ -135,39 +292,15 @@ public class AuthResponse
     public string CurrentVersion { get; set; }
 }
 
-// Usage Example
+// Program Entry Point
 class Program
 {
-    static async Task Main(string[] args)
+    [STAThread]
+    static void Main()
     {
-        var authClient = new AuthApiClient("${apiKey}");
-
-        try
-        {
-            // Login example
-            var loginResult = await authClient.LoginAsync("testuser", "password123", "${selectedApplication?.version || "1.0.0"}", "HWID-12345");
-            
-            if (loginResult.Success)
-            {
-                Console.WriteLine($"Login successful! User ID: {loginResult.UserId}");
-                Console.WriteLine($"Message: {loginResult.Message}");
-                
-                // Verify user session
-                var verifyResult = await authClient.VerifyAsync(loginResult.UserId.Value);
-                if (verifyResult.Success)
-                {
-                    Console.WriteLine("User session verified successfully!");
-                }
-            }
-            else
-            {
-                Console.WriteLine($"Login failed: {loginResult.Message}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error: {ex.Message}");
-        }
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+        Application.Run(new LoginForm());
     }
 }`;
 
@@ -240,15 +373,39 @@ if __name__ == "__main__":
         login_result = client.login("testuser", "password123", "${selectedApplication?.version || "1.0.0"}", "HWID-12345")
         
         if login_result.get("success"):
+            # Display custom success message from application settings
+            message = login_result.get('message', 'Login successful!')
             print(f"Login successful! User ID: {login_result.get('user_id')}")
-            print(f"Message: {login_result.get('message')}")
+            print(f"Welcome Message: {message}")
+            
+            # Show success message in GUI (if using tkinter)
+            # import tkinter.messagebox as msgbox
+            # msgbox.showinfo("Login Successful", message)
             
             # Verify user session
             verify_result = client.verify(login_result["user_id"])
             if verify_result.get("success"):
                 print("User session verified successfully!")
+                # Your application logic here
+                # main_window.show()  # Example: Show main application window
         else:
-            print(f"Login failed: {login_result.get('message')}")
+            # Display custom error message from application settings
+            error_message = login_result.get('message', 'Login failed')
+            print(f"Login failed: {error_message}")
+            
+            # Show error message in GUI (if using tkinter)
+            # import tkinter.messagebox as msgbox
+            # msgbox.showerror("Login Failed", error_message)
+            
+            # Handle different error types based on message content
+            if "disabled" in error_message.lower():
+                print("Account has been disabled. Please contact support.")
+            elif "expired" in error_message.lower():
+                print("Account has expired. Please renew your subscription.")
+            elif "version" in error_message.lower():
+                print("Version mismatch. Please update your application.")
+            elif "hwid" in error_message.lower():
+                print("Hardware ID mismatch. Please contact support to reset your HWID.")
     
     except Exception as e:
         print(f"Error: {e}")`;
@@ -318,16 +475,41 @@ class AuthApiClient {
         const loginResult = await client.login('testuser', 'password123', '${selectedApplication?.version || "1.0.0"}', 'HWID-12345');
         
         if (loginResult.success) {
+            // Display custom success message from application settings
+            const message = loginResult.message || 'Login successful!';
             console.log(\`Login successful! User ID: \${loginResult.user_id}\`);
-            console.log(\`Message: \${loginResult.message}\`);
+            console.log(\`Welcome Message: \${message}\`);
+            
+            // Show success notification (if using Electron or web)
+            // new Notification('Login Successful', { body: message });
+            // Or display in UI: document.getElementById('status').textContent = message;
             
             // Verify user session
             const verifyResult = await client.verify(loginResult.user_id);
             if (verifyResult.success) {
                 console.log('User session verified successfully!');
+                // Your application logic here
+                // showMainInterface(); // Example: Show main application interface
             }
         } else {
-            console.log(\`Login failed: \${loginResult.message}\`);
+            // Display custom error message from application settings
+            const errorMessage = loginResult.message || 'Login failed';
+            console.log(\`Login failed: \${errorMessage}\`);
+            
+            // Show error notification (if using Electron or web)
+            // new Notification('Login Failed', { body: errorMessage });
+            // Or display in UI: document.getElementById('error').textContent = errorMessage;
+            
+            // Handle different error types based on message content
+            if (errorMessage.toLowerCase().includes('disabled')) {
+                console.log('Account has been disabled. Please contact support.');
+            } else if (errorMessage.toLowerCase().includes('expired')) {
+                console.log('Account has expired. Please renew your subscription.');
+            } else if (errorMessage.toLowerCase().includes('version')) {
+                console.log('Version mismatch. Please update your application.');
+            } else if (errorMessage.toLowerCase().includes('hwid')) {
+                console.log('Hardware ID mismatch. Please contact support to reset your HWID.');
+            }
         }
     } catch (error) {
         console.error(\`Error: \${error.message}\`);
@@ -463,6 +645,50 @@ curl -X POST "${baseUrl}/api/v1/verify" \\
           </CardContent>
         </Card>
 
+        {/* Message Handling Info */}
+        <Card className="mb-8 border-l-4 border-l-blue-500">
+          <CardHeader>
+            <CardTitle className="flex items-center text-blue-700 dark:text-blue-400">
+              <div className="h-6 w-6 bg-blue-500 rounded-full mr-3 flex items-center justify-center">
+                <span className="text-white text-sm">!</span>
+              </div>
+              Important: Custom Message Display
+            </CardTitle>
+            <CardDescription>
+              Your application settings contain custom messages that will be displayed to users. Here's how they work:
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
+                <h4 className="font-semibold text-green-800 dark:text-green-400 mb-2">Success Messages</h4>
+                <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
+                  <li>• <strong>Login Success:</strong> Your custom welcome message</li>
+                  <li>• Displayed when authentication succeeds</li>
+                  <li>• Can include personalized greeting text</li>
+                </ul>
+              </div>
+              <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
+                <h4 className="font-semibold text-red-800 dark:text-red-400 mb-2">Error Messages</h4>
+                <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
+                  <li>• <strong>Login Failed:</strong> Invalid credentials message</li>
+                  <li>• <strong>Account Disabled:</strong> Custom disabled message</li>
+                  <li>• <strong>Account Expired:</strong> Custom expiration message</li>
+                  <li>• <strong>Version Mismatch:</strong> Update required message</li>
+                  <li>• <strong>HWID Mismatch:</strong> Hardware binding message</li>
+                </ul>
+              </div>
+            </div>
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
+              <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                <strong>💡 Pro Tip:</strong> The <code className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">Message</code> field in the API response contains 
+                the exact text you configured in your application settings. Use <code className="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">loginResult.Message</code> to 
+                display these custom messages to your users.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Code Examples */}
         <Card>
           <CardHeader>
@@ -470,7 +696,7 @@ curl -X POST "${baseUrl}/api/v1/verify" \\
               <div>
                 <CardTitle>Code Example</CardTitle>
                 <CardDescription>
-                  Complete implementation example for {selectedLanguage === "csharp" ? "C#" : selectedLanguage}
+                  Complete implementation example for {selectedLanguage === "csharp" ? "C#" : selectedLanguage} with proper message handling
                 </CardDescription>
               </div>
               <Button onClick={() => copyToClipboard(getCodeExample())}>
@@ -484,6 +710,53 @@ curl -X POST "${baseUrl}/api/v1/verify" \\
               <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
                 <code>{getCodeExample()}</code>
               </pre>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Implementation Notes */}
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle>Implementation Notes</CardTitle>
+            <CardDescription>Important considerations for message display</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="font-semibold mb-3 text-blue-600 dark:text-blue-400">Message Response Structure</h4>
+                <div className="bg-slate-100 dark:bg-slate-800 p-3 rounded-lg">
+                  <pre className="text-xs">
+{`{
+  "success": true/false,
+  "message": "Your custom message here",
+  "user_id": 123,
+  "username": "user123",
+  // ... other fields
+}`}
+                  </pre>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-3 text-green-600 dark:text-green-400">Best Practices</h4>
+                <ul className="text-sm space-y-2">
+                  <li className="flex items-start">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    Always display the <code className="bg-slate-200 dark:bg-slate-700 px-1 rounded">message</code> field to users
+                  </li>
+                  <li className="flex items-start">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    Use appropriate UI elements (MessageBox, notifications, etc.)
+                  </li>
+                  <li className="flex items-start">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    Handle different error types with specific actions
+                  </li>
+                  <li className="flex items-start">
+                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    Test with your actual configured messages
+                  </li>
+                </ul>
+              </div>
             </div>
           </CardContent>
         </Card>
