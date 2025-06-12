@@ -260,13 +260,16 @@ public partial class LoginForm : Form
                     
                     this.Hide();
                     
-                    var mainForm = new MainForm();
-                    mainForm.UserData = new UserInfo
+                    // Create UserInfo first
+                    var userInfo = new UserInfo
                     {
                         UserId = loginResult.UserId,  // FIXED: No .Value needed
                         Username = loginResult.Username,
                         Email = loginResult.Email
                     };
+                    
+                    // Pass UserInfo to MainForm constructor
+                    var mainForm = new MainForm(userInfo);
                     mainForm.Show();
                     
                     // Start enhanced session monitoring
@@ -508,15 +511,16 @@ public class MainForm : Form
 {
     public UserInfo UserData { get; set; }
 
-    public MainForm()
+    public MainForm(UserInfo userInfo)
     {
+        UserData = userInfo;
         this.Text = "Main Application - User: " + (UserData?.Username ?? "Unknown");
         this.Size = new System.Drawing.Size(600, 400);
         this.StartPosition = FormStartPosition.CenterScreen;
         
         var welcomeLabel = new Label
         {
-            Text = $"Welcome to the application!\\n\\nUser ID: {UserData?.UserId}\\nUsername: {UserData?.Username}\\nLogin Time: {UserData?.LoginTime}",
+            Text = $"Welcome to the application!\\n\\nUser ID: {UserData?.UserId}\\nUsername: {UserData?.Username}\\nLogin Time: {UserData?.LoginTime:yyyy-MM-dd HH:mm:ss}",
             Location = new System.Drawing.Point(50, 50),
             Size = new System.Drawing.Size(500, 200),
             Font = new System.Drawing.Font("Arial", 12)
