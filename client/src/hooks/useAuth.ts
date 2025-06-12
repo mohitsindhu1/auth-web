@@ -9,7 +9,7 @@ export function useAuth() {
 
   // Listen to Firebase auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChange((user) => {
+    const unsubscribe = onAuthStateChange((user: User | null) => {
       setFirebaseUser(user);
       setIsFirebaseLoading(false);
     });

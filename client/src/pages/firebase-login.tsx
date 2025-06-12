@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Shield, LogIn, CheckCircle, Info, Users, Building, Globe } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { auth, signInWithGoogle, handleRedirectResult, onAuthStateChange } from "@/lib/firebase";
+import { User } from "firebase/auth";
 
 const firebaseLoginSchema = z.object({});
 
@@ -45,7 +46,7 @@ export default function FirebaseLogin() {
     });
 
     // Listen for auth state changes
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChange((user: User | null) => {
       if (user && !loading && !authenticationInProgress && !authenticating) {
         authenticationInProgress = true;
         setUser(user);
