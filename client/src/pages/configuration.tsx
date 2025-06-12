@@ -1193,7 +1193,7 @@ int main() {
                 <SelectValue placeholder="Choose your application" />
               </SelectTrigger>
               <SelectContent>
-                {applications.map((app: Application) => (
+                {Array.isArray(applications) && applications.map((app: Application) => (
                   <SelectItem key={app.id} value={app.id.toString()}>
                     {app.name}
                   </SelectItem>
