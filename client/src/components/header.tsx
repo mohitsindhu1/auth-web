@@ -88,12 +88,6 @@ export default function Header() {
                   Code
                 </Button>
               </Link>
-              <Link href="/configuration">
-                <Button variant={location === "/configuration" ? "default" : "ghost"} size="sm">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Config
-                </Button>
-              </Link>
               <Link href="/docs">
                 <Button variant={location === "/docs" ? "default" : "ghost"} size="sm">
                   <FileText className="h-4 w-4 mr-2" />
