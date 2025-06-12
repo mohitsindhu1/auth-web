@@ -567,6 +567,1658 @@ FEATURES INCLUDED:
 - Session tracking on server
 */`;
 
+  const pythonLoginExample = `import requests
+import json
+import time
+import threading
+import hashlib
+import platform
+import subprocess
+import uuid
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
+import tkinter as tk
+from tkinter import messagebox, ttk
+
+class AuthResponse:
+    def __init__(self, data: Dict[str, Any]):
+        self.success = data.get('success', False)
+        self.message = data.get('message', '')
+        self.user_id = data.get('user_id')
+        self.username = data.get('username', '')
+        self.email = data.get('email', '')
+        self.expires_at = data.get('expires_at')
+        self.hwid_locked = data.get('hwid_locked')
+
+class SessionResponse:
+    def __init__(self, data: Dict[str, Any]):
+        self.success = data.get('success', False)
+        self.message = data.get('message', '')
+        self.session_token = data.get('session_token', '')
+
+class UserInfo:
+    def __init__(self, user_id: int, username: str, email: str, expires_at=None):
+        self.user_id = user_id
+        self.username = username
+        self.email = email
+        self.login_time = datetime.now()
+        self.expires_at = expires_at
+
+class AuthApiClient:
+    def __init__(self, api_key: str, base_url: str = "${baseUrl}"):
+        self.api_key = api_key
+        self.base_url = base_url
+        self.session = requests.Session()
+        self.session.headers.update({'X-API-Key': api_key})
+
+    def login(self, username: str, password: str, version: str = None, hwid: str = None) -> AuthResponse:
+        """Login with username and password"""
+        try:
+            login_data = {
+                'username': username,
+                'password': password,
+                'version': version,
+                'hwid': hwid
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/v1/login",
+                json=login_data,
+                timeout=30
+            )
+            
+            return AuthResponse(response.json())
+        except Exception as e:
+            return AuthResponse({'success': False, 'message': f'Connection error: {str(e)}'})
+
+    def verify(self, user_id: int) -> AuthResponse:
+        """Verify user session"""
+        try:
+            verify_data = {'user_id': user_id}
+            
+            response = self.session.post(
+                f"{self.base_url}/api/v1/verify",
+                json=verify_data,
+                timeout=30
+            )
+            
+            return AuthResponse(response.json())
+        except Exception as e:
+            return AuthResponse({'success': False, 'message': f'Verification error: {str(e)}'})
+
+    def start_session(self, user_id: int, session_token: str) -> SessionResponse:
+        """Start session tracking"""
+        try:
+            session_data = {
+                'user_id': user_id,
+                'session_token': session_token,
+                'action': 'start'
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/v1/session/track",
+                json=session_data,
+                timeout=30
+            )
+            
+            return SessionResponse(response.json())
+        except Exception as e:
+            return SessionResponse({'success': False, 'message': f'Session start error: {str(e)}'})
+
+    def send_heartbeat(self, session_token: str) -> SessionResponse:
+        """Send session heartbeat"""
+        try:
+            session_data = {
+                'session_token': session_token,
+                'action': 'heartbeat'
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/v1/session/track",
+                json=session_data,
+                timeout=30
+            )
+            
+            return SessionResponse(response.json())
+        except Exception as e:
+            return SessionResponse({'success': False, 'message': f'Heartbeat error: {str(e)}'})
+
+    def end_session(self, session_token: str) -> SessionResponse:
+        """End session tracking"""
+        try:
+            session_data = {
+                'session_token': session_token,
+                'action': 'end'
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/v1/session/track",
+                json=session_data,
+                timeout=30
+            )
+            
+            return SessionResponse(response.json())
+        except Exception as e:
+            return SessionResponse({'success': False, 'message': f'Session end error: {str(e)}'})
+
+class LoginWindow:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Application Login")
+        self.root.geometry("400x300")
+        self.root.resizable(False, False)
+        
+        # Center the window
+        self.root.eval('tk::PlaceWindow . center')
+        
+        self.auth_client = AuthApiClient("${apiKey}")
+        
+        # Session monitoring variables
+        self.current_user_id = None
+        self.current_session_token = None
+        self.session_check_failures = 0
+        self.max_failures = 3
+        self.session_timer = None
+        self.heartbeat_timer = None
+        self.monitoring_active = False
+        
+        self.setup_ui()
+
+    def setup_ui(self):
+        # Username
+        tk.Label(self.root, text="Username:", font=("Arial", 10)).place(x=50, y=50)
+        self.username_entry = tk.Entry(self.root, font=("Arial", 10), width=25)
+        self.username_entry.place(x=140, y=50)
+        
+        # Password
+        tk.Label(self.root, text="Password:", font=("Arial", 10)).place(x=50, y=90)
+        self.password_entry = tk.Entry(self.root, font=("Arial", 10), width=25, show="*")
+        self.password_entry.place(x=140, y=90)
+        
+        # Login button
+        self.login_btn = tk.Button(
+            self.root, 
+            text="Login", 
+            font=("Arial", 10), 
+            command=self.login,
+            bg="#007acc",
+            fg="white",
+            width=15
+        )
+        self.login_btn.place(x=140, y=130)
+        
+        # Status label
+        self.status_label = tk.Label(
+            self.root, 
+            text="", 
+            font=("Arial", 9), 
+            fg="red",
+            wraplength=300
+        )
+        self.status_label.place(x=50, y=180)
+        
+        # Bind Enter key to login
+        self.root.bind('<Return>', lambda event: self.login())
+        self.username_entry.focus()
+
+    def login(self):
+        try:
+            self.login_btn.config(state='disabled')
+            self.status_label.config(text="Authenticating...", fg="blue")
+            self.root.update()
+            
+            username = self.username_entry.get().strip()
+            password = self.password_entry.get().strip()
+            
+            if not username or not password:
+                self.status_label.config(text="Please enter both username and password", fg="red")
+                return
+            
+            # Get hardware ID
+            hwid = self.get_hardware_id()
+            
+            # Attempt login
+            login_result = self.auth_client.login(username, password, "${selectedApplication?.version || "1.0.0"}", hwid)
+            
+            if login_result.success:
+                self.status_label.config(text=login_result.message, fg="green")
+                messagebox.showinfo("Login Successful", login_result.message)
+                
+                # Verify session
+                verify_result = self.auth_client.verify(login_result.user_id)
+                if verify_result.success:
+                    print("User session verified successfully!")
+                    
+                    # Hide login window
+                    self.root.withdraw()
+                    
+                    # Create user info
+                    user_info = UserInfo(
+                        login_result.user_id,
+                        login_result.username,
+                        login_result.email,
+                        login_result.expires_at
+                    )
+                    
+                    # Show main window
+                    main_window = MainWindow(user_info, self)
+                    
+                    # Start session monitoring
+                    self.start_session_monitoring(login_result.user_id)
+                    
+                else:
+                    messagebox.showwarning(
+                        "Security Warning", 
+                        "Session verification failed. Please try logging in again."
+                    )
+                    self.clear_form()
+                    
+            else:
+                self.status_label.config(text=login_result.message, fg="red")
+                messagebox.showerror("Login Failed", login_result.message)
+                
+        except Exception as e:
+            error_msg = f"Connection error: {str(e)}"
+            self.status_label.config(text=error_msg, fg="red")
+            messagebox.showerror("Error", f"Network error: {str(e)}")
+            
+        finally:
+            self.login_btn.config(state='normal')
+
+    def start_session_monitoring(self, user_id: int):
+        """Start enhanced session monitoring"""
+        self.current_user_id = user_id
+        self.session_check_failures = 0
+        self.current_session_token = self.generate_session_token()
+        self.monitoring_active = True
+        
+        # Start session on server
+        def start_session_thread():
+            try:
+                session_result = self.auth_client.start_session(user_id, self.current_session_token)
+                if session_result.success:
+                    print(f"Session started: {self.current_session_token[:8]}...")
+            except Exception as e:
+                print(f"Failed to start session: {e}")
+        
+        threading.Thread(target=start_session_thread, daemon=True).start()
+        
+        # Start periodic verification (every 5 minutes)
+        self.session_timer = threading.Timer(300.0, self.verify_session_periodically)
+        self.session_timer.daemon = True
+        self.session_timer.start()
+        
+        # Start heartbeat (every 30 seconds)
+        self.heartbeat_timer = threading.Timer(30.0, self.send_heartbeat)
+        self.heartbeat_timer.daemon = True
+        self.heartbeat_timer.start()
+        
+        print("Session monitoring started successfully")
+
+    def generate_session_token(self) -> str:
+        """Generate unique session token"""
+        guid = str(uuid.uuid4()).replace('-', '')
+        timestamp = int(time.time())
+        return f"sess_{guid}_{timestamp}"
+
+    def verify_session_periodically(self):
+        """Verify session periodically"""
+        if not self.monitoring_active:
+            return
+            
+        try:
+            verify_result = self.auth_client.verify(self.current_user_id)
+            if not verify_result.success:
+                self.session_check_failures += 1
+                print(f"Session verification failed ({self.session_check_failures}/{self.max_failures})")
+                
+                if self.session_check_failures >= self.max_failures:
+                    self.force_logout("Your session has expired. Please login again.")
+                    return
+            else:
+                self.session_check_failures = 0
+                print(f"Session verified at {datetime.now().strftime('%H:%M:%S')}")
+                
+        except Exception as e:
+            print(f"Session verification error: {e}")
+        
+        # Schedule next verification
+        if self.monitoring_active:
+            self.session_timer = threading.Timer(300.0, self.verify_session_periodically)
+            self.session_timer.daemon = True
+            self.session_timer.start()
+
+    def send_heartbeat(self):
+        """Send heartbeat to server"""
+        if not self.monitoring_active:
+            return
+            
+        try:
+            if self.current_session_token:
+                heartbeat_result = self.auth_client.send_heartbeat(self.current_session_token)
+                if not heartbeat_result.success:
+                    print(f"Heartbeat failed: {heartbeat_result.message}")
+        except Exception as e:
+            print(f"Heartbeat error: {e}")
+        
+        # Schedule next heartbeat
+        if self.monitoring_active:
+            self.heartbeat_timer = threading.Timer(30.0, self.send_heartbeat)
+            self.heartbeat_timer.daemon = True
+            self.heartbeat_timer.start()
+
+    def force_logout(self, reason: str):
+        """Force logout and return to login screen"""
+        # End session on server
+        if self.current_session_token:
+            try:
+                self.auth_client.end_session(self.current_session_token)
+                print("Session ended on server")
+            except Exception as e:
+                print(f"Failed to end session: {e}")
+        
+        # Stop monitoring
+        self.stop_session_monitoring()
+        
+        # Show message and return to login
+        def show_logout_message():
+            messagebox.showwarning("Session Expired", reason)
+            self.show_login_window()
+        
+        # Schedule on main thread
+        self.root.after(0, show_logout_message)
+
+    def show_login_window(self):
+        """Show login window and clear form"""
+        self.root.deiconify()
+        self.root.lift()
+        self.clear_form()
+        
+        # Clear session data
+        self.current_session_token = None
+        self.current_user_id = None
+        self.session_check_failures = 0
+
+    def stop_session_monitoring(self):
+        """Stop session monitoring"""
+        self.monitoring_active = False
+        
+        if self.session_timer:
+            self.session_timer.cancel()
+        if self.heartbeat_timer:
+            self.heartbeat_timer.cancel()
+            
+        print("Session monitoring stopped")
+
+    def clear_form(self):
+        """Clear login form"""
+        self.username_entry.delete(0, tk.END)
+        self.password_entry.delete(0, tk.END)
+        self.status_label.config(text="")
+        self.username_entry.focus()
+
+    def get_hardware_id(self) -> str:
+        """Get hardware ID for HWID locking"""
+        try:
+            # Get system info
+            system_info = platform.uname()
+            machine_id = system_info.machine + system_info.processor
+            
+            # Try to get additional hardware info based on platform
+            if platform.system() == "Windows":
+                try:
+                    import winreg
+                    key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 
+                                       "SOFTWARE\\Microsoft\\Cryptography")
+                    guid = winreg.QueryValueEx(key, "MachineGuid")[0]
+                    machine_id += guid
+                    winreg.CloseKey(key)
+                except:
+                    pass
+            elif platform.system() == "Linux":
+                try:
+                    with open("/etc/machine-id", "r") as f:
+                        machine_id += f.read().strip()
+                except:
+                    pass
+            elif platform.system() == "Darwin":  # macOS
+                try:
+                    result = subprocess.run(
+                        ["system_profiler", "SPHardwareDataType"],
+                        capture_output=True, text=True
+                    )
+                    machine_id += result.stdout
+                except:
+                    pass
+            
+            # Create hash
+            combined = machine_id + platform.node()
+            return hashlib.sha256(combined.encode()).hexdigest()
+            
+        except Exception as e:
+            # Fallback to basic info
+            return hashlib.sha256(
+                (platform.node() + platform.system()).encode()
+            ).hexdigest()
+
+    def on_closing(self):
+        """Handle window closing"""
+        self.stop_session_monitoring()
+        self.root.destroy()
+
+    def run(self):
+        """Start the application"""
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.root.mainloop()
+
+class MainWindow:
+    def __init__(self, user_info: UserInfo, login_window: LoginWindow):
+        self.user_info = user_info
+        self.login_window = login_window
+        
+        self.window = tk.Toplevel()
+        self.window.title(f"Main Application - User: {user_info.username}")
+        self.window.geometry("600x400")
+        self.window.resizable(True, True)
+        
+        # Center the window
+        self.window.eval('tk::PlaceWindow . center')
+        
+        self.setup_ui()
+        
+        # Handle window close
+        self.window.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def setup_ui(self):
+        # Welcome message
+        welcome_text = f"""Welcome to the application!
+
+User ID: {self.user_info.user_id}
+Username: {self.user_info.username}
+Email: {self.user_info.email or 'Not provided'}
+Login Time: {self.user_info.login_time.strftime('%Y-%m-%d %H:%M:%S')}
+Expires At: {self.user_info.expires_at or 'Never'}
+
+Session monitoring is active.
+The application will automatically verify your session every 5 minutes.
+"""
+        
+        welcome_label = tk.Label(
+            self.window,
+            text=welcome_text,
+            font=("Arial", 12),
+            justify=tk.LEFT,
+            anchor="nw"
+        )
+        welcome_label.pack(padx=50, pady=50, fill=tk.BOTH, expand=True)
+        
+        # Logout button
+        logout_btn = tk.Button(
+            self.window,
+            text="Logout",
+            font=("Arial", 10),
+            command=self.logout,
+            bg="#dc3545",
+            fg="white",
+            width=15
+        )
+        logout_btn.pack(pady=20)
+
+    def logout(self):
+        """Manual logout"""
+        self.login_window.force_logout("You have been logged out.")
+        self.window.destroy()
+
+    def on_closing(self):
+        """Handle window closing"""
+        self.login_window.stop_session_monitoring()
+        self.login_window.show_login_window()
+        self.window.destroy()
+
+# Example usage
+if __name__ == "__main__":
+    app = LoginWindow()
+    app.run()
+
+"""
+SETUP INSTRUCTIONS:
+1. Install required packages:
+   pip install requests
+
+2. Replace YOUR_API_KEY with your actual API key: ${apiKey}
+3. Replace YOUR_BASE_URL with: ${baseUrl}
+4. Run the script: python auth_client.py
+
+FEATURES INCLUDED:
+- Login with HWID verification
+- Session verification every 5 minutes  
+- Heartbeat every 30 seconds
+- Automatic logout on session expiry
+- Complete error handling for all scenarios
+- Session tracking on server
+- Cross-platform HWID generation
+- GUI application with Tkinter
+
+REQUIREMENTS:
+- Python 3.7+
+- requests library
+- tkinter (usually included with Python)
+"""`;
+
+  const nodejsLoginExample = `const axios = require('axios');
+const crypto = require('crypto');
+const os = require('os');
+const { execSync } = require('child_process');
+
+class AuthResponse {
+    constructor(data) {
+        this.success = data.success || false;
+        this.message = data.message || '';
+        this.user_id = data.user_id;
+        this.username = data.username || '';
+        this.email = data.email || '';
+        this.expires_at = data.expires_at;
+        this.hwid_locked = data.hwid_locked;
+    }
+}
+
+class SessionResponse {
+    constructor(data) {
+        this.success = data.success || false;
+        this.message = data.message || '';
+        this.session_token = data.session_token || '';
+    }
+}
+
+class UserInfo {
+    constructor(userId, username, email, expiresAt = null) {
+        this.userId = userId;
+        this.username = username;
+        this.email = email;
+        this.loginTime = new Date();
+        this.expiresAt = expiresAt;
+    }
+}
+
+class AuthApiClient {
+    constructor(apiKey, baseUrl = '${baseUrl}') {
+        this.apiKey = apiKey;
+        this.baseUrl = baseUrl;
+        this.axios = axios.create({
+            timeout: 30000,
+            headers: {
+                'X-API-Key': apiKey,
+                'Content-Type': 'application/json'
+            }
+        });
+    }
+
+    async login(username, password, version = null, hwid = null) {
+        try {
+            const loginData = { username, password, version, hwid };
+            const response = await this.axios.post(\`\${this.baseUrl}/api/v1/login\`, loginData);
+            return new AuthResponse(response.data);
+        } catch (error) {
+            const message = error.response?.data?.message || \`Connection error: \${error.message}\`;
+            return new AuthResponse({ success: false, message });
+        }
+    }
+
+    async verify(userId) {
+        try {
+            const verifyData = { user_id: userId };
+            const response = await this.axios.post(\`\${this.baseUrl}/api/v1/verify\`, verifyData);
+            return new AuthResponse(response.data);
+        } catch (error) {
+            const message = error.response?.data?.message || \`Verification error: \${error.message}\`;
+            return new AuthResponse({ success: false, message });
+        }
+    }
+
+    async startSession(userId, sessionToken) {
+        try {
+            const sessionData = { user_id: userId, session_token: sessionToken, action: 'start' };
+            const response = await this.axios.post(\`\${this.baseUrl}/api/v1/session/track\`, sessionData);
+            return new SessionResponse(response.data);
+        } catch (error) {
+            const message = error.response?.data?.message || \`Session start error: \${error.message}\`;
+            return new SessionResponse({ success: false, message });
+        }
+    }
+
+    async sendHeartbeat(sessionToken) {
+        try {
+            const sessionData = { session_token: sessionToken, action: 'heartbeat' };
+            const response = await this.axios.post(\`\${this.baseUrl}/api/v1/session/track\`, sessionData);
+            return new SessionResponse(response.data);
+        } catch (error) {
+            const message = error.response?.data?.message || \`Heartbeat error: \${error.message}\`;
+            return new SessionResponse({ success: false, message });
+        }
+    }
+
+    async endSession(sessionToken) {
+        try {
+            const sessionData = { session_token: sessionToken, action: 'end' };
+            const response = await this.axios.post(\`\${this.baseUrl}/api/v1/session/track\`, sessionData);
+            return new SessionResponse(response.data);
+        } catch (error) {
+            const message = error.response?.data?.message || \`Session end error: \${error.message}\`;
+            return new SessionResponse({ success: false, message });
+        }
+    }
+}
+
+class AuthApp {
+    constructor() {
+        this.authClient = new AuthApiClient('${apiKey}');
+        this.currentUserId = null;
+        this.currentSessionToken = null;
+        this.sessionCheckFailures = 0;
+        this.maxFailures = 3;
+        this.sessionTimer = null;
+        this.heartbeatTimer = null;
+        this.monitoringActive = false;
+    }
+
+    async login(username, password) {
+        try {
+            console.log('Authenticating...');
+            
+            if (!username || !password) {
+                throw new Error('Please provide both username and password');
+            }
+
+            // Get hardware ID
+            const hwid = this.getHardwareId();
+            
+            // Attempt login
+            const loginResult = await this.authClient.login(username, password, '${selectedApplication?.version || "1.0.0"}', hwid);
+            
+            if (loginResult.success) {
+                console.log(\`✅ \${loginResult.message}\`);
+                
+                // Verify session
+                const verifyResult = await this.authClient.verify(loginResult.user_id);
+                if (verifyResult.success) {
+                    console.log('✅ User session verified successfully!');
+                    
+                    // Create user info
+                    const userInfo = new UserInfo(
+                        loginResult.user_id,
+                        loginResult.username,
+                        loginResult.email,
+                        loginResult.expires_at
+                    );
+                    
+                    // Start session monitoring
+                    this.startSessionMonitoring(loginResult.user_id);
+                    
+                    // Show main application
+                    this.showMainApplication(userInfo);
+                    
+                    return { success: true, userInfo };
+                } else {
+                    console.log('⚠️ Session verification failed. Please try logging in again.');
+                    return { success: false, message: 'Session verification failed' };
+                }
+            } else {
+                console.log(\`❌ \${loginResult.message}\`);
+                return { success: false, message: loginResult.message };
+            }
+        } catch (error) {
+            const errorMsg = \`Connection error: \${error.message}\`;
+            console.log(\`❌ \${errorMsg}\`);
+            return { success: false, message: errorMsg };
+        }
+    }
+
+    startSessionMonitoring(userId) {
+        this.currentUserId = userId;
+        this.sessionCheckFailures = 0;
+        this.currentSessionToken = this.generateSessionToken();
+        this.monitoringActive = true;
+        
+        // Start session on server
+        this.authClient.startSession(userId, this.currentSessionToken)
+            .then(result => {
+                if (result.success) {
+                    console.log(\`📡 Session started: \${this.currentSessionToken.substring(0, 8)}...\`);
+                }
+            })
+            .catch(error => {
+                console.log(\`❌ Failed to start session: \${error.message}\`);
+            });
+        
+        // Start periodic verification (every 5 minutes)
+        this.sessionTimer = setInterval(() => {
+            this.verifySessionPeriodically();
+        }, 5 * 60 * 1000);
+        
+        // Start heartbeat (every 30 seconds)
+        this.heartbeatTimer = setInterval(() => {
+            this.sendHeartbeat();
+        }, 30 * 1000);
+        
+        console.log('🔄 Session monitoring started successfully');
+    }
+
+    async verifySessionPeriodically() {
+        if (!this.monitoringActive) return;
+        
+        try {
+            const verifyResult = await this.authClient.verify(this.currentUserId);
+            if (!verifyResult.success) {
+                this.sessionCheckFailures++;
+                console.log(\`⚠️ Session verification failed (\${this.sessionCheckFailures}/\${this.maxFailures})\`);
+                
+                if (this.sessionCheckFailures >= this.maxFailures) {
+                    this.forceLogout('Your session has expired. Please login again.');
+                    return;
+                }
+            } else {
+                this.sessionCheckFailures = 0;
+                console.log(\`✅ Session verified at \${new Date().toLocaleTimeString()}\`);
+            }
+        } catch (error) {
+            console.log(\`❌ Session verification error: \${error.message}\`);
+        }
+    }
+
+    async sendHeartbeat() {
+        if (!this.monitoringActive) return;
+        
+        try {
+            if (this.currentSessionToken) {
+                const heartbeatResult = await this.authClient.sendHeartbeat(this.currentSessionToken);
+                if (!heartbeatResult.success) {
+                    console.log(\`💔 Heartbeat failed: \${heartbeatResult.message}\`);
+                }
+            }
+        } catch (error) {
+            console.log(\`❌ Heartbeat error: \${error.message}\`);
+        }
+    }
+
+    async forceLogout(reason) {
+        // End session on server
+        if (this.currentSessionToken) {
+            try {
+                await this.authClient.endSession(this.currentSessionToken);
+                console.log('📡 Session ended on server');
+            } catch (error) {
+                console.log(\`❌ Failed to end session: \${error.message}\`);
+            }
+        }
+        
+        // Stop monitoring
+        this.stopSessionMonitoring();
+        
+        // Show logout message
+        console.log(\`🚪 \${reason}\`);
+        
+        // Return to login prompt
+        this.showLoginPrompt();
+    }
+
+    stopSessionMonitoring() {
+        this.monitoringActive = false;
+        
+        if (this.sessionTimer) {
+            clearInterval(this.sessionTimer);
+            this.sessionTimer = null;
+        }
+        
+        if (this.heartbeatTimer) {
+            clearInterval(this.heartbeatTimer);
+            this.heartbeatTimer = null;
+        }
+        
+        console.log('🛑 Session monitoring stopped');
+    }
+
+    generateSessionToken() {
+        const guid = crypto.randomUUID().replace(/-/g, '');
+        const timestamp = Math.floor(Date.now() / 1000);
+        return \`sess_\${guid}_\${timestamp}\`;
+    }
+
+    showMainApplication(userInfo) {
+        console.log('\\n' + '='.repeat(50));
+        console.log('🎉 WELCOME TO THE APPLICATION! 🎉');
+        console.log('='.repeat(50));
+        console.log(\`👤 User ID: \${userInfo.userId}\`);
+        console.log(\`📝 Username: \${userInfo.username}\`);
+        console.log(\`📧 Email: \${userInfo.email || 'Not provided'}\`);
+        console.log(\`⏰ Login Time: \${userInfo.loginTime.toLocaleString()}\`);
+        console.log(\`📅 Expires At: \${userInfo.expiresAt || 'Never'}\`);
+        console.log('\\n🔄 Session monitoring is active.');
+        console.log('📡 The application will automatically verify your session every 5 minutes.');
+        console.log('💓 Heartbeat is sent every 30 seconds.');
+        console.log('\\nType "logout" to manually logout or Ctrl+C to exit.');
+        console.log('='.repeat(50));
+        
+        // Start command line interface
+        this.startCLI();
+    }
+
+    startCLI() {
+        const readline = require('readline');
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout,
+            prompt: '> '
+        });
+
+        rl.prompt();
+
+        rl.on('line', (input) => {
+            const command = input.trim().toLowerCase();
+            
+            switch (command) {
+                case 'logout':
+                    this.forceLogout('You have been logged out.');
+                    rl.close();
+                    break;
+                case 'status':
+                    console.log(\`📊 Status: Active | User ID: \${this.currentUserId} | Failures: \${this.sessionCheckFailures}\`);
+                    break;
+                case 'help':
+                    console.log('Available commands: logout, status, help');
+                    break;
+                default:
+                    console.log('Unknown command. Type "help" for available commands.');
+            }
+            
+            rl.prompt();
+        });
+
+        rl.on('close', () => {
+            this.stopSessionMonitoring();
+            console.log('\\n👋 Goodbye!');
+            process.exit(0);
+        });
+    }
+
+    showLoginPrompt() {
+        const readline = require('readline');
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+
+        console.log('\\n' + '='.repeat(50));
+        console.log('🔐 APPLICATION LOGIN');
+        console.log('='.repeat(50));
+
+        rl.question('👤 Username: ', (username) => {
+            rl.question('🔒 Password: ', (password) => {
+                rl.close();
+                
+                this.login(username, password).then(result => {
+                    if (!result.success) {
+                        console.log(\`\\n❌ Login failed: \${result.message}\\n\`);
+                        setTimeout(() => this.showLoginPrompt(), 1000);
+                    }
+                });
+            });
+        });
+    }
+
+    getHardwareId() {
+        try {
+            // Get system information
+            const systemInfo = {
+                platform: os.platform(),
+                arch: os.arch(),
+                hostname: os.hostname(),
+                cpus: os.cpus()[0]?.model || '',
+                totalmem: os.totalmem()
+            };
+
+            let hardwareInfo = JSON.stringify(systemInfo);
+
+            // Try to get additional hardware info based on platform
+            try {
+                if (os.platform() === 'win32') {
+                    // Windows: Get machine GUID
+                    const machineGuid = execSync('powershell -command "(Get-ItemProperty -Path HKLM:\\\\SOFTWARE\\\\Microsoft\\\\Cryptography -Name MachineGuid).MachineGuid"', { encoding: 'utf8' }).trim();
+                    hardwareInfo += machineGuid;
+                } else if (os.platform() === 'linux') {
+                    // Linux: Get machine ID
+                    const machineId = execSync('cat /etc/machine-id', { encoding: 'utf8' }).trim();
+                    hardwareInfo += machineId;
+                } else if (os.platform() === 'darwin') {
+                    // macOS: Get hardware UUID
+                    const hardwareUuid = execSync('system_profiler SPHardwareDataType | grep "Hardware UUID"', { encoding: 'utf8' }).trim();
+                    hardwareInfo += hardwareUuid;
+                }
+            } catch (error) {
+                // Fallback to basic info if specific commands fail
+                console.log('Using fallback hardware ID generation');
+            }
+
+            // Create hash
+            return crypto.createHash('sha256').update(hardwareInfo).digest('hex');
+            
+        } catch (error) {
+            // Ultimate fallback
+            const fallback = os.hostname() + os.platform() + os.arch();
+            return crypto.createHash('sha256').update(fallback).digest('hex');
+        }
+    }
+
+    start() {
+        console.log('🚀 Starting Application...');
+        this.showLoginPrompt();
+    }
+}
+
+// Example usage
+if (require.main === module) {
+    const app = new AuthApp();
+    app.start();
+}
+
+// Export for use as module
+module.exports = {
+    AuthApiClient,
+    AuthApp,
+    AuthResponse,
+    SessionResponse,
+    UserInfo
+};
+
+/*
+SETUP INSTRUCTIONS:
+1. Install required packages:
+   npm install axios
+
+2. Replace YOUR_API_KEY with your actual API key: ${apiKey}
+3. Replace YOUR_BASE_URL with: ${baseUrl}
+4. Run the script: node auth_client.js
+
+FEATURES INCLUDED:
+- Login with HWID verification
+- Session verification every 5 minutes
+- Heartbeat every 30 seconds
+- Automatic logout on session expiry
+- Complete error handling for all scenarios
+- Session tracking on server
+- Cross-platform HWID generation
+- Command line interface
+- Can be used as a module in other Node.js applications
+
+REQUIREMENTS:
+- Node.js 14+
+- axios package
+*/`;
+
+  const cppLoginExample = `#include <iostream>
+#include <string>
+#include <memory>
+#include <thread>
+#include <chrono>
+#include <atomic>
+#include <json/json.h>
+#include <curl/curl.h>
+#include <openssl/sha.h>
+#include <iomanip>
+#include <sstream>
+#include <ctime>
+
+#ifdef _WIN32
+    #include <windows.h>
+    #include <comdef.h>
+    #include <Wbemidl.h>
+    #pragma comment(lib, "wbemuuid.lib")
+#elif __linux__
+    #include <fstream>
+    #include <sys/utsname.h>
+#elif __APPLE__
+    #include <sys/sysctl.h>
+    #include <sys/utsname.h>
+#endif
+
+// HTTP Response structure
+struct HttpResponse {
+    std::string data;
+    long response_code;
+    
+    HttpResponse() : response_code(0) {}
+};
+
+// Callback function for CURL to write response data
+static size_t WriteCallback(void* contents, size_t size, size_t nmemb, HttpResponse* response) {
+    size_t totalSize = size * nmemb;
+    response->data.append((char*)contents, totalSize);
+    return totalSize;
+}
+
+// Auth Response class
+class AuthResponse {
+public:
+    bool success;
+    std::string message;
+    int user_id;
+    std::string username;
+    std::string email;
+    std::string expires_at;
+    bool hwid_locked;
+
+    AuthResponse() : success(false), user_id(0), hwid_locked(false) {}
+    
+    AuthResponse(const Json::Value& json) {
+        success = json.get("success", false).asBool();
+        message = json.get("message", "").asString();
+        user_id = json.get("user_id", 0).asInt();
+        username = json.get("username", "").asString();
+        email = json.get("email", "").asString();
+        expires_at = json.get("expires_at", "").asString();
+        hwid_locked = json.get("hwid_locked", false).asBool();
+    }
+};
+
+// Session Response class
+class SessionResponse {
+public:
+    bool success;
+    std::string message;
+    std::string session_token;
+
+    SessionResponse() : success(false) {}
+    
+    SessionResponse(const Json::Value& json) {
+        success = json.get("success", false).asBool();
+        message = json.get("message", "").asString();
+        session_token = json.get("session_token", "").asString();
+    }
+};
+
+// User Info class
+class UserInfo {
+public:
+    int user_id;
+    std::string username;
+    std::string email;
+    std::time_t login_time;
+    std::string expires_at;
+
+    UserInfo(int id, const std::string& uname, const std::string& mail, const std::string& expires = "")
+        : user_id(id), username(uname), email(mail), expires_at(expires) {
+        login_time = std::time(nullptr);
+    }
+};
+
+// Auth API Client class
+class AuthApiClient {
+private:
+    std::string api_key;
+    std::string base_url;
+    CURL* curl;
+
+    HttpResponse makeRequest(const std::string& url, const std::string& json_data, const std::string& method = "POST") {
+        HttpResponse response;
+        
+        if (!curl) {
+            response.response_code = -1;
+            return response;
+        }
+
+        curl_easy_reset(curl);
+        curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
+
+        // Set headers
+        struct curl_slist* headers = nullptr;
+        std::string auth_header = "X-API-Key: " + api_key;
+        headers = curl_slist_append(headers, "Content-Type: application/json");
+        headers = curl_slist_append(headers, auth_header.c_str());
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+        if (method == "POST") {
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_data.c_str());
+        }
+
+        CURLcode res = curl_easy_perform(curl);
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.response_code);
+        
+        curl_slist_free_all(headers);
+
+        if (res != CURLE_OK) {
+            response.response_code = -1;
+            response.data = "Connection error: " + std::string(curl_easy_strerror(res));
+        }
+
+        return response;
+    }
+
+public:
+    AuthApiClient(const std::string& key, const std::string& url = "${baseUrl}")
+        : api_key(key), base_url(url) {
+        curl = curl_easy_init();
+    }
+
+    ~AuthApiClient() {
+        if (curl) {
+            curl_easy_cleanup(curl);
+        }
+    }
+
+    AuthResponse login(const std::string& username, const std::string& password, 
+                      const std::string& version = "", const std::string& hwid = "") {
+        Json::Value login_data;
+        login_data["username"] = username;
+        login_data["password"] = password;
+        if (!version.empty()) login_data["version"] = version;
+        if (!hwid.empty()) login_data["hwid"] = hwid;
+
+        Json::StreamWriterBuilder builder;
+        std::string json_string = Json::writeString(builder, login_data);
+
+        HttpResponse response = makeRequest(base_url + "/api/v1/login", json_string);
+        
+        if (response.response_code == -1) {
+            AuthResponse auth_resp;
+            auth_resp.message = response.data;
+            return auth_resp;
+        }
+
+        Json::Value json_response;
+        Json::Reader reader;
+        if (reader.parse(response.data, json_response)) {
+            return AuthResponse(json_response);
+        } else {
+            AuthResponse auth_resp;
+            auth_resp.message = "Failed to parse response";
+            return auth_resp;
+        }
+    }
+
+    AuthResponse verify(int user_id) {
+        Json::Value verify_data;
+        verify_data["user_id"] = user_id;
+
+        Json::StreamWriterBuilder builder;
+        std::string json_string = Json::writeString(builder, verify_data);
+
+        HttpResponse response = makeRequest(base_url + "/api/v1/verify", json_string);
+        
+        if (response.response_code == -1) {
+            AuthResponse auth_resp;
+            auth_resp.message = response.data;
+            return auth_resp;
+        }
+
+        Json::Value json_response;
+        Json::Reader reader;
+        if (reader.parse(response.data, json_response)) {
+            return AuthResponse(json_response);
+        } else {
+            AuthResponse auth_resp;
+            auth_resp.message = "Failed to parse response";
+            return auth_resp;
+        }
+    }
+
+    SessionResponse startSession(int user_id, const std::string& session_token) {
+        Json::Value session_data;
+        session_data["user_id"] = user_id;
+        session_data["session_token"] = session_token;
+        session_data["action"] = "start";
+
+        Json::StreamWriterBuilder builder;
+        std::string json_string = Json::writeString(builder, session_data);
+
+        HttpResponse response = makeRequest(base_url + "/api/v1/session/track", json_string);
+        
+        if (response.response_code == -1) {
+            SessionResponse sess_resp;
+            sess_resp.message = response.data;
+            return sess_resp;
+        }
+
+        Json::Value json_response;
+        Json::Reader reader;
+        if (reader.parse(response.data, json_response)) {
+            return SessionResponse(json_response);
+        } else {
+            SessionResponse sess_resp;
+            sess_resp.message = "Failed to parse response";
+            return sess_resp;
+        }
+    }
+
+    SessionResponse sendHeartbeat(const std::string& session_token) {
+        Json::Value session_data;
+        session_data["session_token"] = session_token;
+        session_data["action"] = "heartbeat";
+
+        Json::StreamWriterBuilder builder;
+        std::string json_string = Json::writeString(builder, session_data);
+
+        HttpResponse response = makeRequest(base_url + "/api/v1/session/track", json_string);
+        
+        if (response.response_code == -1) {
+            SessionResponse sess_resp;
+            sess_resp.message = response.data;
+            return sess_resp;
+        }
+
+        Json::Value json_response;
+        Json::Reader reader;
+        if (reader.parse(response.data, json_response)) {
+            return SessionResponse(json_response);
+        } else {
+            SessionResponse sess_resp;
+            sess_resp.message = "Failed to parse response";
+            return sess_resp;
+        }
+    }
+
+    SessionResponse endSession(const std::string& session_token) {
+        Json::Value session_data;
+        session_data["session_token"] = session_token;
+        session_data["action"] = "end";
+
+        Json::StreamWriterBuilder builder;
+        std::string json_string = Json::writeString(builder, session_data);
+
+        HttpResponse response = makeRequest(base_url + "/api/v1/session/track", json_string);
+        
+        if (response.response_code == -1) {
+            SessionResponse sess_resp;
+            sess_resp.message = response.data;
+            return sess_resp;
+        }
+
+        Json::Value json_response;
+        Json::Reader reader;
+        if (reader.parse(response.data, json_response)) {
+            return SessionResponse(json_response);
+        } else {
+            SessionResponse sess_resp;
+            sess_resp.message = "Failed to parse response";
+            return sess_resp;
+        }
+    }
+};
+
+// Auth Application class
+class AuthApp {
+private:
+    std::unique_ptr<AuthApiClient> auth_client;
+    int current_user_id;
+    std::string current_session_token;
+    int session_check_failures;
+    const int max_failures;
+    std::atomic<bool> monitoring_active;
+    std::thread session_thread;
+    std::thread heartbeat_thread;
+
+    std::string generateSessionToken() {
+        std::time_t now = std::time(nullptr);
+        std::stringstream ss;
+        ss << "sess_" << std::hex << now << "_" << std::hex << std::hash<std::string>{}(std::to_string(now));
+        return ss.str();
+    }
+
+    std::string getHardwareId() {
+        std::string hardware_info;
+        
+#ifdef _WIN32
+        // Windows implementation
+        try {
+            HKEY hKey;
+            if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, 
+                           TEXT("SOFTWARE\\\\Microsoft\\\\Cryptography"), 
+                           0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+                
+                TCHAR szBuffer[512];
+                DWORD dwBufferSize = sizeof(szBuffer);
+                if (RegQueryValueEx(hKey, TEXT("MachineGuid"), 0, NULL, 
+                                  (LPBYTE)szBuffer, &dwBufferSize) == ERROR_SUCCESS) {
+                    hardware_info = szBuffer;
+                }
+                RegCloseKey(hKey);
+            }
+        } catch (...) {
+            hardware_info = "windows_fallback";
+        }
+#elif __linux__
+        // Linux implementation
+        try {
+            std::ifstream file("/etc/machine-id");
+            if (file.is_open()) {
+                std::getline(file, hardware_info);
+                file.close();
+            }
+        } catch (...) {
+            hardware_info = "linux_fallback";
+        }
+#elif __APPLE__
+        // macOS implementation
+        try {
+            size_t size = 0;
+            sysctlbyname("kern.uuid", nullptr, &size, nullptr, 0);
+            char* uuid = new char[size];
+            sysctlbyname("kern.uuid", uuid, &size, nullptr, 0);
+            hardware_info = std::string(uuid);
+            delete[] uuid;
+        } catch (...) {
+            hardware_info = "macos_fallback";
+        }
+#endif
+
+        // Add additional system info
+        hardware_info += std::to_string(std::hash<std::string>{}("additional_entropy"));
+
+        // Create SHA256 hash
+        unsigned char hash[SHA256_DIGEST_LENGTH];
+        SHA256_CTX sha256;
+        SHA256_Init(&sha256);
+        SHA256_Update(&sha256, hardware_info.c_str(), hardware_info.length());
+        SHA256_Final(hash, &sha256);
+
+        std::stringstream ss;
+        for (int i = 0; i < SHA256_DIGEST_LENGTH; i++) {
+            ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
+        }
+
+        return ss.str();
+    }
+
+    void sessionMonitoringLoop() {
+        while (monitoring_active.load()) {
+            std::this_thread::sleep_for(std::chrono::minutes(5));
+            
+            if (!monitoring_active.load()) break;
+            
+            try {
+                AuthResponse verify_result = auth_client->verify(current_user_id);
+                if (!verify_result.success) {
+                    session_check_failures++;
+                    std::cout << "⚠️ Session verification failed (" 
+                             << session_check_failures << "/" << max_failures << ")" << std::endl;
+                    
+                    if (session_check_failures >= max_failures) {
+                        forceLogout("Your session has expired. Please login again.");
+                        break;
+                    }
+                } else {
+                    session_check_failures = 0;
+                    std::time_t now = std::time(nullptr);
+                    std::cout << "✅ Session verified at " << std::ctime(&now);
+                }
+            } catch (const std::exception& e) {
+                std::cout << "❌ Session verification error: " << e.what() << std::endl;
+            }
+        }
+    }
+
+    void heartbeatLoop() {
+        while (monitoring_active.load()) {
+            std::this_thread::sleep_for(std::chrono::seconds(30));
+            
+            if (!monitoring_active.load()) break;
+            
+            try {
+                if (!current_session_token.empty()) {
+                    SessionResponse heartbeat_result = auth_client->sendHeartbeat(current_session_token);
+                    if (!heartbeat_result.success) {
+                        std::cout << "💔 Heartbeat failed: " << heartbeat_result.message << std::endl;
+                    }
+                }
+            } catch (const std::exception& e) {
+                std::cout << "❌ Heartbeat error: " << e.what() << std::endl;
+            }
+        }
+    }
+
+    void forceLogout(const std::string& reason) {
+        // End session on server
+        if (!current_session_token.empty()) {
+            try {
+                auth_client->endSession(current_session_token);
+                std::cout << "📡 Session ended on server" << std::endl;
+            } catch (const std::exception& e) {
+                std::cout << "❌ Failed to end session: " << e.what() << std::endl;
+            }
+        }
+        
+        // Stop monitoring
+        stopSessionMonitoring();
+        
+        // Show logout message
+        std::cout << "🚪 " << reason << std::endl;
+        
+        // Return to login prompt
+        showLoginPrompt();
+    }
+
+    void stopSessionMonitoring() {
+        monitoring_active.store(false);
+        
+        if (session_thread.joinable()) {
+            session_thread.join();
+        }
+        
+        if (heartbeat_thread.joinable()) {
+            heartbeat_thread.join();
+        }
+        
+        std::cout << "🛑 Session monitoring stopped" << std::endl;
+    }
+
+    void startSessionMonitoring(int user_id) {
+        current_user_id = user_id;
+        session_check_failures = 0;
+        current_session_token = generateSessionToken();
+        monitoring_active.store(true);
+        
+        // Start session on server
+        try {
+            SessionResponse session_result = auth_client->startSession(user_id, current_session_token);
+            if (session_result.success) {
+                std::cout << "📡 Session started: " << current_session_token.substr(0, 8) << "..." << std::endl;
+            }
+        } catch (const std::exception& e) {
+            std::cout << "❌ Failed to start session: " << e.what() << std::endl;
+        }
+        
+        // Start monitoring threads
+        session_thread = std::thread(&AuthApp::sessionMonitoringLoop, this);
+        heartbeat_thread = std::thread(&AuthApp::heartbeatLoop, this);
+        
+        std::cout << "🔄 Session monitoring started successfully" << std::endl;
+    }
+
+    void showMainApplication(const UserInfo& user_info) {
+        std::cout << "\\n" << std::string(50, '=') << std::endl;
+        std::cout << "🎉 WELCOME TO THE APPLICATION! 🎉" << std::endl;
+        std::cout << std::string(50, '=') << std::endl;
+        std::cout << "👤 User ID: " << user_info.user_id << std::endl;
+        std::cout << "📝 Username: " << user_info.username << std::endl;
+        std::cout << "📧 Email: " << (user_info.email.empty() ? "Not provided" : user_info.email) << std::endl;
+        std::cout << "⏰ Login Time: " << std::ctime(&user_info.login_time);
+        std::cout << "📅 Expires At: " << (user_info.expires_at.empty() ? "Never" : user_info.expires_at) << std::endl;
+        std::cout << "\\n🔄 Session monitoring is active." << std::endl;
+        std::cout << "📡 The application will automatically verify your session every 5 minutes." << std::endl;
+        std::cout << "💓 Heartbeat is sent every 30 seconds." << std::endl;
+        std::cout << "\\nType 'logout' to manually logout or 'quit' to exit." << std::endl;
+        std::cout << std::string(50, '=') << std::endl;
+        
+        // Start command line interface
+        startCLI();
+    }
+
+    void startCLI() {
+        std::string input;
+        std::cout << "> ";
+        
+        while (std::getline(std::cin, input)) {
+            if (input == "logout") {
+                forceLogout("You have been logged out.");
+                break;
+            } else if (input == "quit" || input == "exit") {
+                stopSessionMonitoring();
+                std::cout << "\\n👋 Goodbye!" << std::endl;
+                break;
+            } else if (input == "status") {
+                std::cout << "📊 Status: Active | User ID: " << current_user_id 
+                         << " | Failures: " << session_check_failures << std::endl;
+            } else if (input == "help") {
+                std::cout << "Available commands: logout, status, help, quit" << std::endl;
+            } else if (!input.empty()) {
+                std::cout << "Unknown command. Type 'help' for available commands." << std::endl;
+            }
+            
+            std::cout << "> ";
+        }
+    }
+
+    void showLoginPrompt() {
+        std::cout << "\\n" << std::string(50, '=') << std::endl;
+        std::cout << "🔐 APPLICATION LOGIN" << std::endl;
+        std::cout << std::string(50, '=') << std::endl;
+        
+        std::string username, password;
+        
+        std::cout << "👤 Username: ";
+        std::getline(std::cin, username);
+        
+        std::cout << "🔒 Password: ";
+        std::getline(std::cin, password);
+        
+        login(username, password);
+    }
+
+public:
+    AuthApp() : auth_client(std::make_unique<AuthApiClient>("${apiKey}")), 
+                current_user_id(0), session_check_failures(0), max_failures(3),
+                monitoring_active(false) {}
+
+    ~AuthApp() {
+        stopSessionMonitoring();
+    }
+
+    void login(const std::string& username, const std::string& password) {
+        try {
+            std::cout << "Authenticating..." << std::endl;
+            
+            if (username.empty() || password.empty()) {
+                std::cout << "❌ Please provide both username and password" << std::endl;
+                showLoginPrompt();
+                return;
+            }
+
+            // Get hardware ID
+            std::string hwid = getHardwareId();
+            
+            // Attempt login
+            AuthResponse login_result = auth_client->login(username, password, "${selectedApplication?.version || "1.0.0"}", hwid);
+            
+            if (login_result.success) {
+                std::cout << "✅ " << login_result.message << std::endl;
+                
+                // Verify session
+                AuthResponse verify_result = auth_client->verify(login_result.user_id);
+                if (verify_result.success) {
+                    std::cout << "✅ User session verified successfully!" << std::endl;
+                    
+                    // Create user info
+                    UserInfo user_info(login_result.user_id, login_result.username, 
+                                     login_result.email, login_result.expires_at);
+                    
+                    // Start session monitoring
+                    startSessionMonitoring(login_result.user_id);
+                    
+                    // Show main application
+                    showMainApplication(user_info);
+                } else {
+                    std::cout << "⚠️ Session verification failed. Please try logging in again." << std::endl;
+                    showLoginPrompt();
+                }
+            } else {
+                std::cout << "❌ " << login_result.message << std::endl;
+                showLoginPrompt();
+            }
+        } catch (const std::exception& e) {
+            std::cout << "❌ Connection error: " << e.what() << std::endl;
+            showLoginPrompt();
+        }
+    }
+
+    void start() {
+        std::cout << "🚀 Starting Application..." << std::endl;
+        showLoginPrompt();
+    }
+};
+
+// Main function
+int main() {
+    // Initialize CURL
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    
+    try {
+        AuthApp app;
+        app.start();
+    } catch (const std::exception& e) {
+        std::cout << "Fatal error: " << e.what() << std::endl;
+        return 1;
+    }
+    
+    // Cleanup CURL
+    curl_global_cleanup();
+    
+    return 0;
+}
+
+/*
+SETUP INSTRUCTIONS:
+
+1. Install required libraries:
+   
+   Ubuntu/Debian:
+   sudo apt-get install libcurl4-openssl-dev libjsoncpp-dev libssl-dev
+
+   CentOS/RHEL:
+   sudo yum install libcurl-devel jsoncpp-devel openssl-devel
+
+   macOS (with Homebrew):
+   brew install curl jsoncpp openssl
+
+   Windows (with vcpkg):
+   vcpkg install curl jsoncpp openssl
+
+2. Compile the program:
+   g++ -std=c++11 auth_client.cpp -lcurl -ljsoncpp -lssl -lcrypto -pthread -o auth_client
+
+3. Replace YOUR_API_KEY with your actual API key: ${apiKey}
+4. Replace YOUR_BASE_URL with: ${baseUrl}
+5. Run the program: ./auth_client
+
+FEATURES INCLUDED:
+- Login with HWID verification
+- Session verification every 5 minutes
+- Heartbeat every 30 seconds
+- Automatic logout on session expiry
+- Complete error handling for all scenarios
+- Session tracking on server
+- Cross-platform HWID generation (Windows, Linux, macOS)
+- Command line interface
+- Multi-threaded session monitoring
+
+REQUIREMENTS:
+- C++11 or later
+- libcurl
+- jsoncpp
+- OpenSSL
+- pthread support
+*/`;
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Header />
@@ -626,10 +2278,11 @@ FEATURES INCLUDED:
           </div>
 
           <Tabs value={selectedLanguage} onValueChange={setSelectedLanguage} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="csharp">C# WinForms</TabsTrigger>
               <TabsTrigger value="python">Python</TabsTrigger>
               <TabsTrigger value="nodejs">Node.js</TabsTrigger>
+              <TabsTrigger value="cpp">C++</TabsTrigger>
             </TabsList>
 
             <TabsContent value="csharp" className="space-y-4">
@@ -676,13 +2329,40 @@ FEATURES INCLUDED:
             <TabsContent value="python" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Python Implementation</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Code className="h-5 w-5" />
+                    Python Tkinter Login Implementation
+                  </CardTitle>
                   <CardDescription>
-                    Python authentication client with session management
+                    Complete Python GUI application with enhanced session monitoring and all authentication features.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">Python example coming soon...</p>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">GUI Application</Badge>
+                        <Badge variant="secondary">Session Monitoring</Badge>
+                        <Badge variant="secondary">Cross-Platform</Badge>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(pythonLoginExample)}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Code
+                      </Button>
+                    </div>
+
+                    <div className="relative">
+                      <Textarea
+                        value={pythonLoginExample}
+                        readOnly
+                        className="min-h-[400px] font-mono text-sm"
+                      />
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -690,13 +2370,81 @@ FEATURES INCLUDED:
             <TabsContent value="nodejs" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Node.js Implementation</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Code className="h-5 w-5" />
+                    Node.js Console Login Implementation
+                  </CardTitle>
                   <CardDescription>
-                    JavaScript/TypeScript authentication client
+                    Complete Node.js application with enhanced session monitoring and all authentication features.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-muted-foreground">Node.js example coming soon...</p>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">Console Application</Badge>
+                        <Badge variant="secondary">Session Monitoring</Badge>
+                        <Badge variant="secondary">ES6 Support</Badge>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(nodejsLoginExample)}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Code
+                      </Button>
+                    </div>
+
+                    <div className="relative">
+                      <Textarea
+                        value={nodejsLoginExample}
+                        readOnly
+                        className="min-h-[400px] font-mono text-sm"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="cpp" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Code className="h-5 w-5" />
+                    C++ Console Login Implementation
+                  </CardTitle>
+                  <CardDescription>
+                    Complete C++ application with enhanced session monitoring and all authentication features.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary">Native Application</Badge>
+                        <Badge variant="secondary">Multi-threaded</Badge>
+                        <Badge variant="secondary">Cross-Platform</Badge>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyToClipboard(cppLoginExample)}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Code
+                      </Button>
+                    </div>
+
+                    <div className="relative">
+                      <Textarea
+                        value={cppLoginExample}
+                        readOnly
+                        className="min-h-[400px] font-mono text-sm"
+                      />
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
