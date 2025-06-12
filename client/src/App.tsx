@@ -13,6 +13,8 @@ import Webhooks from "@/pages/webhooks";
 import Blacklist from "@/pages/blacklist";
 import ActivityLogs from "@/pages/activity-logs";
 import IntegrationExamples from "@/pages/integration-examples-new";
+import CodeEditor from "@/pages/code-editor";
+import UserManagement from "@/pages/user-management";
 import FirebaseLogin from "@/pages/firebase-login";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
@@ -48,6 +50,8 @@ function Router() {
           <Route path="/activity-logs" component={ActivityLogs} />
           <Route path="/integration" component={IntegrationExamples} />
           <Route path="/docs" component={Documentation} />
+          <Route path="/code-editor" component={CodeEditor} />
+          <Route path="/user-management" component={UserManagement} />
         </>
       )}
       <Route component={NotFound} />

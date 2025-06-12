@@ -1,15 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, FileText, Users, DollarSign, LogIn, LogOut, Settings, Webhook, Ban, Home, Moon, Sun, Activity, Code } from "lucide-react";
+import { Shield, FileText, Users, DollarSign, LogIn, LogOut, Settings, Webhook, Ban, Home, Moon, Sun, Activity, Code, Crown, UserCog } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 export default function Header() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [location, setLocation] = useLocation();
   const { theme, toggleTheme } = useTheme();
+  
+  // Check if user has owner privileges
+  const isOwner = (user as any)?.userPermissions?.role === 'owner';
+  const canEditCode = (user as any)?.userPermissions?.permissions?.includes('edit_code') || isOwner;
+  const canManageUsers = (user as any)?.userPermissions?.permissions?.includes('manage_users') || isOwner;
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -89,6 +94,25 @@ export default function Header() {
                   Docs
                 </Button>
               </Link>
+              
+              {/* Owner-specific navigation */}
+              {canEditCode && (
+                <Link href="/code-editor">
+                  <Button variant={location === "/code-editor" ? "default" : "ghost"} size="sm">
+                    <Code className="h-4 w-4 mr-2" />
+                    Code Editor
+                  </Button>
+                </Link>
+              )}
+              
+              {canManageUsers && (
+                <Link href="/user-management">
+                  <Button variant={location === "/user-management" ? "default" : "ghost"} size="sm">
+                    <UserCog className="h-4 w-4 mr-2" />
+                    Users
+                  </Button>
+                </Link>
+              )}
             </nav>
 
             <div className="flex items-center space-x-4">

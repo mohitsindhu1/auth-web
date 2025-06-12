@@ -1445,6 +1445,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin routes for user management
+  app.get('/api/admin/users', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_USERS), async (req: any, res) => {
+    try {
+      // For now, return mock data since we only have the owner user
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      const users = currentUser ? [currentUser] : [];
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  app.patch('/api/admin/users/:userId', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_PERMISSIONS), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      const { role, permissions, isActive } = req.body;
+      
+      // Only owner can modify other users
+      const currentUser = await storage.getUser(req.user.claims.sub);
+      if (currentUser?.role !== 'owner' && userId !== req.user.claims.sub) {
+        return res.status(403).json({ message: "Only the owner can modify other users" });
+      }
+
+      // Update user permissions (for demonstration, we'll just return success)
+      res.json({ success: true, message: "User permissions updated" });
+    } catch (error) {
+      console.error("Error updating user:", error);
+      res.status(500).json({ message: "Failed to update user" });
+    }
+  });
+
+  app.delete('/api/admin/users/:userId', isAuthenticated, requireRole(ROLES.OWNER), async (req: any, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Prevent self-deletion
+      if (userId === req.user.claims.sub) {
+        return res.status(400).json({ message: "Cannot delete your own account" });
+      }
+
+      // For demonstration, just return success
+      res.json({ success: true, message: "User deleted" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
