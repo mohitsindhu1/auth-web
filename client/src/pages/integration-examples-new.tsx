@@ -431,7 +431,11 @@ public partial class LoginForm : Form
 
     private void CloseMainFormsAndShowLogin()
     {
-        foreach (Form form in Application.OpenForms.Cast<Form>().ToArray())
+        // Convert FormCollection to array without LINQ Cast
+        Form[] openForms = new Form[Application.OpenForms.Count];
+        Application.OpenForms.CopyTo(openForms, 0);
+        
+        foreach (Form form in openForms)
         {
             if (form.Name == "MainForm" || form.GetType().Name == "MainForm")
             {
