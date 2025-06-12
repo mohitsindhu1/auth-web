@@ -223,6 +223,7 @@ public partial class LoginForm : Form
     private System.Windows.Forms.Timer sessionTimer;
     private System.Windows.Forms.Timer heartbeatTimer;
     private int currentUserId;
+    private string currentSessionToken;
     private int sessionCheckFailures = 0;
     private readonly int maxFailures = 3; // Allow 3 failures before forcing logout
     
@@ -230,6 +231,25 @@ public partial class LoginForm : Form
     {
         currentUserId = userId;
         sessionCheckFailures = 0;
+        
+        // Generate unique session token
+        currentSessionToken = GenerateSessionToken();
+        
+        // Start session tracking on server
+        Task.Run(async () => {
+            try 
+            {
+                var sessionResult = await _authClient.StartSessionAsync(userId, currentSessionToken);
+                if (sessionResult.Success)
+                {
+                    Console.WriteLine($"✓ Session started with token: {currentSessionToken.Substring(0, 8)}...");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to start session tracking: {ex.Message}");
+            }
+        });
         
         // Primary session verification every 5 minutes
         sessionTimer = new System.Windows.Forms.Timer();
@@ -246,6 +266,15 @@ public partial class LoginForm : Form
         Console.WriteLine("Enhanced session monitoring started:");
         Console.WriteLine("- Session verification: every 5 minutes");
         Console.WriteLine("- Session heartbeat: every 30 seconds");
+        Console.WriteLine($"- Session token: {currentSessionToken.Substring(0, 8)}...");
+    }
+    
+    private string GenerateSessionToken()
+    {
+        // Generate unique session token using GUID + timestamp
+        var guid = Guid.NewGuid().ToString("N");
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        return $"sess_{guid}_{timestamp}";
     }
     
     private async Task VerifySessionPeriodically()
@@ -296,8 +325,11 @@ public partial class LoginForm : Form
     {
         try
         {
-            // Simple heartbeat to maintain session activity
-            var heartbeatResult = await _authClient.VerifyAsync(currentUserId);
+            if (string.IsNullOrEmpty(currentSessionToken))
+                return;
+
+            // Send heartbeat to maintain session activity
+            var heartbeatResult = await _authClient.SendHeartbeatAsync(currentSessionToken);
             if (!heartbeatResult.Success)
             {
                 Console.WriteLine($"⚠ Heartbeat failed: {heartbeatResult.Message}");
@@ -454,6 +486,52 @@ public class AuthApiClient
             PropertyNameCaseInsensitive = true
         });
     }
+
+    // Session Management Methods
+    public async Task<SessionResponse> StartSessionAsync(int userId, string sessionToken)
+    {
+        var sessionData = new { user_id = userId, session_token = sessionToken, action = "start" };
+        var json = JsonSerializer.Serialize(sessionData);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"{_baseUrl}/api/v1/session/track", content);
+        var responseJson = await response.Content.ReadAsStringAsync();
+
+        return JsonSerializer.Deserialize<SessionResponse>(responseJson, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+    }
+
+    public async Task<SessionResponse> SendHeartbeatAsync(string sessionToken)
+    {
+        var sessionData = new { session_token = sessionToken, action = "heartbeat" };
+        var json = JsonSerializer.Serialize(sessionData);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"{_baseUrl}/api/v1/session/track", content);
+        var responseJson = await response.Content.ReadAsStringAsync();
+
+        return JsonSerializer.Deserialize<SessionResponse>(responseJson, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+    }
+
+    public async Task<SessionResponse> EndSessionAsync(string sessionToken)
+    {
+        var sessionData = new { session_token = sessionToken, action = "end" };
+        var json = JsonSerializer.Serialize(sessionData);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"{_baseUrl}/api/v1/session/track", content);
+        var responseJson = await response.Content.ReadAsStringAsync();
+
+        return JsonSerializer.Deserialize<SessionResponse>(responseJson, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+    }
 }
 
 // Updated AuthResponse to match API format exactly
@@ -466,7 +544,7 @@ public class AuthResponse
     public string Message { get; set; }  // Custom messages from your app settings
     
     [JsonPropertyName("user_id")]
-    public int UserId { get; set; }  // No longer nullable - API returns integer
+    public int UserId { get; set; }  // Changed from nullable int? to int
     
     [JsonPropertyName("username")]
     public string Username { get; set; }
@@ -485,6 +563,19 @@ public class AuthResponse
     
     [JsonPropertyName("current_version")]
     public string CurrentVersion { get; set; }
+}
+
+// Session response class for session tracking
+public class SessionResponse
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+    
+    [JsonPropertyName("message")]
+    public string Message { get; set; }
+    
+    [JsonPropertyName("session_token")]
+    public string SessionToken { get; set; }
 }
 
 // User Information Class for Main Application

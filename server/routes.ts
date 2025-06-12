@@ -1011,6 +1011,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ success: false, message: "Account is disabled" });
       }
 
+      if (user.isPaused) {
+        return res.status(401).json({ success: false, message: "Account is temporarily paused" });
+      }
+
       // Check expiration
       if (user.expiresAt && new Date() > user.expiresAt) {
         return res.status(401).json({ success: false, message: "Account has expired" });
@@ -1027,6 +1031,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error verifying user:", error);
       res.status(500).json({ success: false, message: "Verification failed" });
+    }
+  });
+
+  // Session tracking endpoint for active session management
+  app.post('/api/v1/session/track', validateApiKey, async (req: any, res) => {
+    try {
+      const application = req.application;
+      const { user_id, session_token, action } = req.body;
+      
+      if (!user_id) {
+        return res.status(400).json({ success: false, message: "User ID required" });
+      }
+
+      const user = await storage.getAppUser(user_id);
+      if (!user || user.applicationId !== application.id) {
+        return res.status(404).json({ success: false, message: "User not found" });
+      }
+
+      // Create or update session based on action
+      if (action === 'start' && session_token) {
+        // Create new session
+        await storage.createActiveSession({
+          applicationId: application.id,
+          appUserId: user.id,
+          sessionToken: session_token,
+          ipAddress: req.ip || req.connection.remoteAddress,
+          userAgent: req.headers['user-agent'] || '',
+          location: null,
+          hwid: null,
+          expiresAt: null,
+          isActive: true
+        });
+
+        // Log session start activity
+        await webhookService.logAndNotify(
+          application.userId,
+          application.id,
+          'session_start',
+          user,
+          { 
+            success: true, 
+            ipAddress: req.ip || req.connection.remoteAddress,
+            userAgent: req.headers['user-agent'],
+            metadata: {
+              session_token: session_token,
+              session_start_time: new Date().toISOString()
+            }
+          }
+        );
+
+        res.json({ 
+          success: true, 
+          message: "Session started",
+          session_token: session_token
+        });
+      } 
+      else if (action === 'heartbeat' && session_token) {
+        // Update session activity
+        const updated = await storage.updateSessionActivity(session_token);
+        
+        res.json({ 
+          success: updated, 
+          message: updated ? "Session updated" : "Session not found"
+        });
+      }
+      else if (action === 'end' && session_token) {
+        // End session
+        const ended = await storage.endSession(session_token);
+        
+        // Log session end activity
+        if (ended) {
+          await webhookService.logAndNotify(
+            application.userId,
+            application.id,
+            'session_end',
+            user,
+            { 
+              success: true, 
+              ipAddress: req.ip || req.connection.remoteAddress,
+              userAgent: req.headers['user-agent'],
+              metadata: {
+                session_token: session_token,
+                session_end_time: new Date().toISOString()
+              }
+            }
+          );
+        }
+
+        res.json({ 
+          success: ended, 
+          message: ended ? "Session ended" : "Session not found"
+        });
+      }
+      else {
+        res.status(400).json({ success: false, message: "Invalid action or missing session_token" });
+      }
+    } catch (error) {
+      console.error("Error tracking session:", error);
+      res.status(500).json({ success: false, message: "Session tracking failed" });
     }
   });
 
