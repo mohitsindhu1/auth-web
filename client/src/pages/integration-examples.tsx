@@ -390,7 +390,158 @@ class Program
         Application.SetCompatibleTextRenderingDefault(false);
         Application.Run(new LoginForm());
     }
-}`;
+}
+
+// ========== TESTING DIFFERENT WEBHOOK SCENARIOS ==========
+
+// Test Class for Different Webhook Events
+public class WebhookTestHelper
+{
+    private readonly AuthApiClient _authClient;
+
+    public WebhookTestHelper(string apiKey)
+    {
+        _authClient = new AuthApiClient(apiKey);
+    }
+
+    // Test 1: Invalid Username/Password (Should trigger login_failed webhook)
+    public async Task TestInvalidLogin()
+    {
+        Console.WriteLine("Testing Invalid Login - Should trigger 'login_failed' webhook:");
+        var result = await _authClient.LoginAsync("wronguser", "wrongpass", "${selectedApplication?.version || "1.0.0"}", "test-hwid");
+        Console.WriteLine($"Result: {result.Success}, Message: {result.Message}");
+        Console.WriteLine("Check Discord for login_failed webhook notification\\n");
+    }
+
+    // Test 2: Version Mismatch (Should trigger version_mismatch webhook)
+    public async Task TestVersionMismatch()
+    {
+        Console.WriteLine("Testing Version Mismatch - Should trigger 'version_mismatch' webhook:");
+        var result = await _authClient.LoginAsync("MOHIT", "correct_password", "0.0.1", "test-hwid");
+        Console.WriteLine($"Result: {result.Success}, Message: {result.Message}");
+        Console.WriteLine("Check Discord for version_mismatch webhook notification\\n");
+    }
+
+    // Test 3: Wrong Password for Existing User (Should trigger login_failed webhook)
+    public async Task TestWrongPassword()
+    {
+        Console.WriteLine("Testing Wrong Password - Should trigger 'login_failed' webhook:");
+        var result = await _authClient.LoginAsync("MOHIT", "wrongpassword", "${selectedApplication?.version || "1.0.0"}", "test-hwid");
+        Console.WriteLine($"Result: {result.Success}, Message: {result.Message}");
+        Console.WriteLine("Check Discord for login_failed webhook notification\\n");
+    }
+
+    // Test 4: Run All Tests
+    public async Task RunAllWebhookTests()
+    {
+        Console.WriteLine("=== WEBHOOK TESTING SUITE ===\\n");
+        
+        await TestInvalidLogin();
+        await Task.Delay(2000); // Wait between tests
+        
+        await TestWrongPassword();
+        await Task.Delay(2000);
+        
+        await TestVersionMismatch();
+        await Task.Delay(2000);
+
+        Console.WriteLine("=== All webhook tests completed ===");
+        Console.WriteLine("Check your Discord channel for webhook notifications");
+    }
+}
+
+// Enhanced Login Form with Webhook Testing
+public partial class LoginFormWithTesting : LoginForm
+{
+    private Button btnTestWebhooks;
+    private WebhookTestHelper webhookTester;
+
+    public LoginFormWithTesting() : base()
+    {
+        AddTestingControls();
+        webhookTester = new WebhookTestHelper("${apiKey}");
+    }
+
+    private void AddTestingControls()
+    {
+        // Add Test Webhooks Button
+        btnTestWebhooks = new Button 
+        { 
+            Text = "Test All Webhooks", 
+            Location = new System.Drawing.Point(250, 130), 
+            Size = new System.Drawing.Size(120, 30),
+            BackColor = System.Drawing.Color.Orange,
+            ForeColor = System.Drawing.Color.White
+        };
+        btnTestWebhooks.Click += async (s, e) => await TestWebhooksClick();
+        this.Controls.Add(btnTestWebhooks);
+
+        // Add instruction label
+        var lblInstructions = new Label 
+        { 
+            Text = "Use 'Test All Webhooks' to trigger different webhook events", 
+            Location = new System.Drawing.Point(50, 200), 
+            Size = new System.Drawing.Size(300, 40),
+            ForeColor = System.Drawing.Color.Blue
+        };
+        this.Controls.Add(lblInstructions);
+    }
+
+    private async Task TestWebhooksClick()
+    {
+        btnTestWebhooks.Enabled = false;
+        btnTestWebhooks.Text = "Testing...";
+
+        try
+        {
+            // Show console window for testing output
+            AllocConsole();
+            
+            await webhookTester.RunAllWebhookTests();
+            
+            MessageBox.Show("Webhook testing completed! Check the console output and your Discord channel.", 
+                          "Testing Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error during webhook testing: {ex.Message}", 
+                          "Testing Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            btnTestWebhooks.Enabled = true;
+            btnTestWebhooks.Text = "Test All Webhooks";
+        }
+    }
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern bool AllocConsole();
+}
+
+/*
+=== WEBHOOK TESTING INSTRUCTIONS ===
+
+To test all webhook events:
+
+1. COMPILE AND RUN the application
+2. Click "Test All Webhooks" button
+3. Watch Discord channel for notifications:
+   - login_failed (invalid credentials)
+   - version_mismatch (wrong version)
+   - login_failed (wrong password)
+
+4. To test other events manually:
+   - account_disabled: Disable user in dashboard, then try login
+   - account_expired: Set expiration date in past, then try login
+   - hwid_mismatch: Login with one HWID, then change and login again
+   - login_blocked_ip: Add your IP to blacklist, then try login
+   - login_blocked_username: Add username to blacklist, then try login
+   - login_blocked_hwid: Add HWID to blacklist, then try login
+
+5. SUCCESS webhook (user_login) triggers on valid login
+
+All webhooks should appear in your Discord channel with detailed information.
+*/`;
 
   const pythonExample = `import requests
 import json
