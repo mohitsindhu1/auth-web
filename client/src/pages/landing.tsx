@@ -39,7 +39,6 @@ export default function Landing() {
           </div>
         </div>
       </nav>
-
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
@@ -69,7 +68,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* Features Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/50">
         <div className="max-w-7xl mx-auto">
@@ -145,7 +143,6 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* Stats Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
@@ -165,16 +162,111 @@ export default function Landing() {
           </div>
         </div>
       </section>
-
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-muted/50">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">
             Ready to secure your applications?
           </h2>
-          <p className="text-xl text-muted-foreground mb-8">
-            Join thousands of developers who trust Phantom Auth for their authentication needs
-          </p>
+          <p className="text-xl text-muted-foreground mb-8">Join thousands of developers who trust Phantom Auth for their authentication needs
+
+          🔐 Core Authentication Features
+          User Registration & Login – Full user management system
+
+          API Key Authentication – Secure access control for API usage
+
+          Session Management – Real-time session tracking and verification
+
+          Password Hashing – Industry-standard encryption for secure password storage
+
+          🛡️ Advanced Security Features
+          Hardware ID (HWID) Locking – Prevent account sharing across multiple devices
+
+          Application Version Control – Force updates to the latest version
+
+          Account Expiration System – Set expiry durations for user accounts
+
+          User Pause/Disable System – Temporarily or permanently deactivate users
+
+          Blacklist System – Block users by:
+
+          IP Address
+
+          Username
+
+          Email
+
+          HWID
+
+          📊 Management & Monitoring
+          Real-Time Dashboard – Complete admin control panel
+
+          User Management Interface – Add, edit, or remove users
+
+          Application Settings – Modify and configure app behavior
+
+          Activity Logging – Track all user actions and events
+
+          Live Statistics – View login stats, user activity, and more
+
+          Rate Limiting – Prevent abuse and bot attacks
+
+          🔔 Notification System
+          Webhook Support – Get notified instantly on:
+
+          User login/logout
+
+          Failed login attempts
+
+          Account or HWID violations
+
+          Version mismatches
+
+          Discord Integration – Get alerts directly in your Discord server
+
+          Custom Webhooks – Connect with any URL for external integrations
+
+          🔧 Developer Features
+          RESTful API – Clean, well-structured JSON responses
+
+          C# Integration – Full WinForms support with working examples
+
+          Multi-Language Support – Integrate easily with multiple coding languages
+
+          Comprehensive Documentation – Detailed API docs with examples
+
+          Ready-to-Use Code Samples – Fast and easy implementation
+
+          Smart Error Handling – Clear and informative error messages
+
+          📱 User Interface
+          Modern Dashboard – Sleek, responsive UI
+
+          Dark/Light Theme – Easy theme switching
+
+          Mobile Responsive – Works seamlessly on all screen sizes
+
+          Live Updates – Instant data refresh without reloading
+
+          🚀 Performance Features
+          High-Speed Authentication – Ultra-low latency responses
+
+          Scalable Architecture – Built to support multiple applications
+
+          Optimized Database – Fast and efficient queries
+
+          Efficient Session Handling – Robust and secure session flow
+
+          🔒 Enterprise-Level Security
+          Bank-Grade Encryption – Industry-standard security practices
+
+          HTTPS-Only API Communication – Ensures data integrity and protection
+
+          Token-Based Authentication – Secure session management
+
+          Multi-Level Access Control – Role-based permission system
+
+</p>
           <Button 
             onClick={handleLogin}
             className="phantom-button px-8 py-4 text-lg"
@@ -183,7 +275,6 @@ export default function Landing() {
           </Button>
         </div>
       </section>
-
       {/* Footer */}
       <footer className="bg-background border-t border-border py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
