@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { requirePermission, requireRole, PERMISSIONS, ROLES, getUserPermissions } from "./permissions";
 import { webhookService } from "./webhookService";
 import { 
   insertApplicationSchema, 
@@ -45,7 +46,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
-      res.json(user);
+      const permissions = await getUserPermissions(userId);
+      res.json({ ...user, userPermissions: permissions });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
