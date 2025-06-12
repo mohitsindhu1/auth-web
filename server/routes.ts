@@ -678,6 +678,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ipAddress = req.ip || req.connection.remoteAddress;
       const userAgent = req.headers['user-agent'];
 
+      console.log(`Login attempt - Username: ${username}, IP: ${ipAddress}, Version: ${version}, HWID: ${hwid ? hwid.substring(0, 8) + '...' : 'none'}`);
+
       // Check blacklist - IP address
       if (ipAddress) {
         const ipBlacklist = await storage.checkBlacklist(application.id, 'ip', ipAddress);
@@ -778,7 +780,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await storage.getAppUserByUsername(application.id, username);
       if (!user) {
-        // Update login attempts for security
+        // Send failed login webhook notification for non-existent user
+        await webhookService.logAndNotify(
+          application.userId,
+          application.id,
+          'login_failed',
+          { username },
+          { 
+            success: false, 
+            errorMessage: "User not found",
+            ipAddress,
+            userAgent,
+            hwid,
+            metadata: {
+              reason: "non_existent_user",
+              attempt_time: new Date().toISOString()
+            }
+          }
+        );
+        
         return res.status(401).json({ 
           success: false, 
           message: application.loginFailedMessage || "Invalid credentials!" 
