@@ -2359,10 +2359,9 @@ REQUIREMENTS:
                                   variant="outline"
                                   size="sm"
                                   onClick={saveCode}
-                                  disabled={updateCodeMutation.isPending}
                                 >
                                   <Save className="h-4 w-4 mr-2" />
-                                  {updateCodeMutation.isPending ? "Saving..." : "Save"}
+                                  Save
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -2377,7 +2376,7 @@ REQUIREMENTS:
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => startEditing("csharp", codeTemplates.csharp || csharpLoginExample)}
+                                onClick={() => startEditing("csharp", customTemplates.csharp || csharpLoginExample)}
                               >
                                 <Edit3 className="h-4 w-4 mr-2" />
                                 Edit Code
@@ -2388,7 +2387,7 @@ REQUIREMENTS:
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => copyToClipboard(isEditing && editingLanguage === "csharp" ? editingCode : (codeTemplates.csharp || csharpLoginExample))}
+                          onClick={() => copyToClipboard(isEditing && editingLanguage === "csharp" ? editingCode : (customTemplates.csharp || csharpLoginExample))}
                         >
                           <Copy className="h-4 w-4 mr-2" />
                           Copy Code
@@ -2398,7 +2397,7 @@ REQUIREMENTS:
 
                     <div className="relative">
                       <Textarea
-                        value={isEditing && editingLanguage === "csharp" ? editingCode : (codeTemplates.csharp || csharpLoginExample)}
+                        value={isEditing && editingLanguage === "csharp" ? editingCode : (customTemplates.csharp || csharpLoginExample)}
                         readOnly={!isEditing || editingLanguage !== "csharp"}
                         onChange={(e) => setEditingCode(e.target.value)}
                         className="min-h-[400px] font-mono text-sm"
@@ -2428,20 +2427,56 @@ REQUIREMENTS:
                         <Badge variant="secondary">Session Monitoring</Badge>
                         <Badge variant="secondary">Cross-Platform</Badge>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyToClipboard(pythonLoginExample)}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy Code
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {isOwner && (
+                          <>
+                            {isEditing && editingLanguage === "python" ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={saveCode}
+                                >
+                                  <Save className="h-4 w-4 mr-2" />
+                                  Save
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={cancelEditing}
+                                >
+                                  <X className="h-4 w-4 mr-2" />
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => startEditing("python", customTemplates.python || pythonLoginExample)}
+                              >
+                                <Edit3 className="h-4 w-4 mr-2" />
+                                Edit Code
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(isEditing && editingLanguage === "python" ? editingCode : (customTemplates.python || pythonLoginExample))}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy Code
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="relative">
                       <Textarea
-                        value={pythonLoginExample}
-                        readOnly
+                        value={isEditing && editingLanguage === "python" ? editingCode : (customTemplates.python || pythonLoginExample)}
+                        readOnly={!isEditing || editingLanguage !== "python"}
+                        onChange={(e) => setEditingCode(e.target.value)}
                         className="min-h-[400px] font-mono text-sm"
                       />
                     </div>
@@ -2469,20 +2504,56 @@ REQUIREMENTS:
                         <Badge variant="secondary">Session Monitoring</Badge>
                         <Badge variant="secondary">ES6 Support</Badge>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyToClipboard(nodejsLoginExample)}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy Code
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {isOwner && (
+                          <>
+                            {isEditing && editingLanguage === "nodejs" ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={saveCode}
+                                >
+                                  <Save className="h-4 w-4 mr-2" />
+                                  Save
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={cancelEditing}
+                                >
+                                  <X className="h-4 w-4 mr-2" />
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => startEditing("nodejs", customTemplates.nodejs || nodejsLoginExample)}
+                              >
+                                <Edit3 className="h-4 w-4 mr-2" />
+                                Edit Code
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(isEditing && editingLanguage === "nodejs" ? editingCode : (customTemplates.nodejs || nodejsLoginExample))}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy Code
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="relative">
                       <Textarea
-                        value={nodejsLoginExample}
-                        readOnly
+                        value={isEditing && editingLanguage === "nodejs" ? editingCode : (customTemplates.nodejs || nodejsLoginExample)}
+                        readOnly={!isEditing || editingLanguage !== "nodejs"}
+                        onChange={(e) => setEditingCode(e.target.value)}
                         className="min-h-[400px] font-mono text-sm"
                       />
                     </div>
@@ -2510,20 +2581,56 @@ REQUIREMENTS:
                         <Badge variant="secondary">Multi-threaded</Badge>
                         <Badge variant="secondary">Cross-Platform</Badge>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyToClipboard(cppLoginExample)}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy Code
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {isOwner && (
+                          <>
+                            {isEditing && editingLanguage === "cpp" ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={saveCode}
+                                >
+                                  <Save className="h-4 w-4 mr-2" />
+                                  Save
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={cancelEditing}
+                                >
+                                  <X className="h-4 w-4 mr-2" />
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => startEditing("cpp", customTemplates.cpp || cppLoginExample)}
+                              >
+                                <Edit3 className="h-4 w-4 mr-2" />
+                                Edit Code
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(isEditing && editingLanguage === "cpp" ? editingCode : (customTemplates.cpp || cppLoginExample))}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy Code
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="relative">
                       <Textarea
-                        value={cppLoginExample}
-                        readOnly
+                        value={isEditing && editingLanguage === "cpp" ? editingCode : (customTemplates.cpp || cppLoginExample)}
+                        readOnly={!isEditing || editingLanguage !== "cpp"}
+                        onChange={(e) => setEditingCode(e.target.value)}
                         className="min-h-[400px] font-mono text-sm"
                       />
                     </div>
