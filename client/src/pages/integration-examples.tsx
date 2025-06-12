@@ -122,14 +122,38 @@ public partial class LoginForm : Form
                     MessageBoxIcon.Information
                 );
                 
-                // Verify user session
+                // Verify user session (Double security check)
                 var verifyResult = await _authClient.VerifyAsync(loginResult.UserId.Value);
                 if (verifyResult.Success)
                 {
+                    Console.WriteLine("User session verified successfully!");
+                    
                     // Hide login form and show main application
                     this.Hide();
+                    
+                    // Create and show main application window
                     var mainForm = new MainForm();
+                    mainForm.UserData = new UserInfo
+                    {
+                        UserId = loginResult.UserId.Value,
+                        Username = loginResult.Username,
+                        Email = loginResult.Email
+                    };
                     mainForm.Show();
+                    
+                    // Optional: Start session monitoring for periodic verification
+                    StartSessionMonitoring(loginResult.UserId.Value);
+                }
+                else
+                {
+                    // Session verification failed - security issue
+                    MessageBox.Show("Session verification failed. Please try logging in again.", 
+                                  "Security Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    
+                    // Clear fields and stay on login form
+                    txtUsername.Clear();
+                    txtPassword.Clear();
+                    txtUsername.Focus();
                 }
             }
             else
@@ -192,6 +216,61 @@ public partial class LoginForm : Form
             // Custom HWID mismatch message - user can configure this message
             MessageBox.Show("Hardware ID mismatch detected. Please contact support to reset your device binding.", 
                           "Device Mismatch", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    // Session Monitoring for Periodic Verification
+    private System.Windows.Forms.Timer sessionTimer;
+    
+    private void StartSessionMonitoring(int userId)
+    {
+        // Verify session every 5 minutes to ensure user is still authenticated
+        sessionTimer = new System.Windows.Forms.Timer();
+        sessionTimer.Interval = 300000; // 5 minutes = 300,000 milliseconds
+        sessionTimer.Tick += async (s, e) => await VerifySessionPeriodically(userId);
+        sessionTimer.Start();
+        
+        Console.WriteLine("Session monitoring started - checking every 5 minutes");
+    }
+    
+    private async Task VerifySessionPeriodically(int userId)
+    {
+        try
+        {
+            var verifyResult = await _authClient.VerifyAsync(userId);
+            if (!verifyResult.Success)
+            {
+                // Session expired or invalid - force logout
+                sessionTimer?.Stop();
+                sessionTimer?.Dispose();
+                
+                MessageBox.Show("Your session has expired or become invalid. Please login again.", 
+                              "Session Expired", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                
+                // Show login form again and hide main application
+                foreach (Form form in Application.OpenForms.Cast<Form>().ToArray())
+                {
+                    if (form.Name == "MainForm")
+                    {
+                        form.Hide();
+                        form.Close();
+                    }
+                }
+                
+                this.Show();
+                txtUsername.Clear();
+                txtPassword.Clear();
+                txtUsername.Focus();
+            }
+            else
+            {
+                Console.WriteLine($"Session verified successfully at {DateTime.Now}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Session verification error: {ex.Message}");
+            // Continue monitoring despite errors
         }
     }
 
@@ -290,6 +369,15 @@ public class AuthResponse
     public bool? HwidLocked { get; set; }
     public string RequiredVersion { get; set; }
     public string CurrentVersion { get; set; }
+}
+
+// User Information Class for Main Application
+public class UserInfo
+{
+    public int UserId { get; set; }
+    public string Username { get; set; }
+    public string Email { get; set; }
+    public DateTime LoginTime { get; set; } = DateTime.Now;
 }
 
 // Program Entry Point
