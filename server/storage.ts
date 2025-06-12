@@ -91,10 +91,22 @@ export class DatabaseStorage implements IStorage {
 
   async upsertUser(userData: UpsertUser): Promise<User> {
     // Set special permissions for mohitsindhu121@gmail.com
-    const enhancedUserData = { ...userData };
+    const insertData: any = {
+      id: userData.id,
+      email: userData.email,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      profileImageUrl: userData.profileImageUrl,
+      role: 'user',
+      permissions: [],
+      isActive: true,
+      createdAt: userData.createdAt,
+      updatedAt: userData.updatedAt
+    };
+
     if (userData.email === 'mohitsindhu121@gmail.com') {
-      enhancedUserData.role = 'owner';
-      enhancedUserData.permissions = [
+      insertData.role = 'owner';
+      insertData.permissions = [
         'edit_code', 
         'manage_users', 
         'manage_applications', 
@@ -103,16 +115,22 @@ export class DatabaseStorage implements IStorage {
         'manage_permissions', 
         'access_admin_panel'
       ];
-      enhancedUserData.isActive = true;
+      insertData.isActive = true;
     }
 
     const [user] = await db
       .insert(users)
-      .values(enhancedUserData)
+      .values(insertData)
       .onConflictDoUpdate({
         target: users.id,
         set: {
-          ...enhancedUserData,
+          email: insertData.email,
+          firstName: insertData.firstName,
+          lastName: insertData.lastName,
+          profileImageUrl: insertData.profileImageUrl,
+          role: insertData.role,
+          permissions: insertData.permissions,
+          isActive: insertData.isActive,
           updatedAt: new Date(),
         },
       })
