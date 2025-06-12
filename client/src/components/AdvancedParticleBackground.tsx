@@ -22,25 +22,25 @@ export default function AdvancedParticleBackground() {
 
   const createParticle = useCallback((x?: number, y?: number): Particle => {
     const colors = theme === 'dark' 
-      ? ['#8b5cf6', '#a855f7', '#c084fc', '#ddd6fe', '#ede9fe']
-      : ['#6366f1', '#8b5cf6', '#a855f7', '#c084fc', '#ddd6fe'];
+      ? ['#dc2626', '#ef4444', '#f87171', '#fca5a5', '#fed7d7', '#8b5cf6', '#a855f7']
+      : ['#dc2626', '#ef4444', '#f87171', '#6366f1', '#8b5cf6', '#a855f7'];
     
     return {
       x: x ?? Math.random() * window.innerWidth,
       y: y ?? Math.random() * window.innerHeight,
-      vx: (Math.random() - 0.5) * 2,
-      vy: (Math.random() - 0.5) * 2,
-      size: Math.random() * 3 + 1,
-      opacity: Math.random() * 0.8 + 0.2,
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: (Math.random() - 0.5) * 1.5,
+      size: Math.random() * 2.5 + 0.5,
+      opacity: Math.random() * 0.6 + 0.3,
       color: colors[Math.floor(Math.random() * colors.length)],
       life: 0,
-      maxLife: Math.random() * 300 + 200
+      maxLife: Math.random() * 400 + 300
     };
   }, [theme]);
 
   const initializeParticles = useCallback(() => {
     particlesRef.current = [];
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 80; i++) {
       particlesRef.current.push(createParticle());
     }
   }, [createParticle]);
@@ -61,7 +61,7 @@ export default function AdvancedParticleBackground() {
   }, []);
 
   const drawConnections = useCallback((ctx: CanvasRenderingContext2D, particles: Particle[]) => {
-    const maxDistance = 120;
+    const maxDistance = 100;
     
     for (let i = 0; i < particles.length; i++) {
       for (let j = i + 1; j < particles.length; j++) {
@@ -70,11 +70,11 @@ export default function AdvancedParticleBackground() {
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         if (distance < maxDistance) {
-          const opacity = (1 - distance / maxDistance) * 0.3;
+          const opacity = (1 - distance / maxDistance) * 0.2;
           ctx.save();
           ctx.globalAlpha = opacity;
-          ctx.strokeStyle = theme === 'dark' ? '#8b5cf6' : '#6366f1';
-          ctx.lineWidth = 1;
+          ctx.strokeStyle = theme === 'dark' ? '#dc2626' : '#ef4444';
+          ctx.lineWidth = 0.8;
           ctx.beginPath();
           ctx.moveTo(particles[i].x, particles[i].y);
           ctx.lineTo(particles[j].x, particles[j].y);
@@ -105,16 +105,24 @@ export default function AdvancedParticleBackground() {
       particle.y += particle.vy;
       particle.life++;
 
-      // Mouse interaction
+      // Mouse interaction - more subtle and smooth
       const dx = mouseRef.current.x - particle.x;
       const dy = mouseRef.current.y - particle.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
-      if (distance < 100) {
-        const force = (100 - distance) / 100;
-        particle.vx += (dx / distance) * force * 0.1;
-        particle.vy += (dy / distance) * force * 0.1;
+      if (distance < 150) {
+        const force = (150 - distance) / 150;
+        particle.vx += (dx / distance) * force * 0.05;
+        particle.vy += (dy / distance) * force * 0.05;
       }
+      
+      // Add slight drift for natural movement
+      particle.vx += (Math.random() - 0.5) * 0.02;
+      particle.vy += (Math.random() - 0.5) * 0.02;
+      
+      // Damping to prevent excessive speed
+      particle.vx *= 0.98;
+      particle.vy *= 0.98;
 
       // Boundary check
       if (particle.x < 0 || particle.x > canvas.width) particle.vx *= -1;
