@@ -123,7 +123,7 @@ public partial class LoginForm : Form
                 );
                 
                 // Verify user session (Double security check)
-                var verifyResult = await _authClient.VerifyAsync(loginResult.UserId.Value);
+                var verifyResult = await _authClient.VerifyAsync(loginResult.UserId);
                 if (verifyResult.Success)
                 {
                     Console.WriteLine("User session verified successfully!");
@@ -135,14 +135,14 @@ public partial class LoginForm : Form
                     var mainForm = new MainForm();
                     mainForm.UserData = new UserInfo
                     {
-                        UserId = loginResult.UserId.Value,
+                        UserId = loginResult.UserId,
                         Username = loginResult.Username,
                         Email = loginResult.Email
                     };
                     mainForm.Show();
                     
-                    // Optional: Start session monitoring for periodic verification
-                    StartSessionMonitoring(loginResult.UserId.Value);
+                    // Start session monitoring for periodic verification
+                    StartSessionMonitoring(loginResult.UserId);
                 }
                 else
                 {
@@ -219,59 +219,157 @@ public partial class LoginForm : Form
         }
     }
 
-    // Session Monitoring for Periodic Verification
+    // Enhanced Session Monitoring with Automatic Session Management
     private System.Windows.Forms.Timer sessionTimer;
+    private System.Windows.Forms.Timer heartbeatTimer;
+    private int currentUserId;
+    private int sessionCheckFailures = 0;
+    private readonly int maxFailures = 3; // Allow 3 failures before forcing logout
     
     private void StartSessionMonitoring(int userId)
     {
-        // Verify session every 5 minutes to ensure user is still authenticated
+        currentUserId = userId;
+        sessionCheckFailures = 0;
+        
+        // Primary session verification every 5 minutes
         sessionTimer = new System.Windows.Forms.Timer();
-        sessionTimer.Interval = 300000; // 5 minutes = 300,000 milliseconds
-        sessionTimer.Tick += async (s, e) => await VerifySessionPeriodically(userId);
+        sessionTimer.Interval = 300000; // 5 minutes
+        sessionTimer.Tick += async (s, e) => await VerifySessionPeriodically();
         sessionTimer.Start();
         
-        Console.WriteLine("Session monitoring started - checking every 5 minutes");
+        // Heartbeat timer every 30 seconds to maintain session activity
+        heartbeatTimer = new System.Windows.Forms.Timer();
+        heartbeatTimer.Interval = 30000; // 30 seconds
+        heartbeatTimer.Tick += async (s, e) => await SendHeartbeat();
+        heartbeatTimer.Start();
+        
+        Console.WriteLine("Enhanced session monitoring started:");
+        Console.WriteLine("- Session verification: every 5 minutes");
+        Console.WriteLine("- Session heartbeat: every 30 seconds");
     }
     
-    private async Task VerifySessionPeriodically(int userId)
+    private async Task VerifySessionPeriodically()
     {
         try
         {
-            var verifyResult = await _authClient.VerifyAsync(userId);
+            var verifyResult = await _authClient.VerifyAsync(currentUserId);
             if (!verifyResult.Success)
             {
-                // Session expired or invalid - force logout
-                sessionTimer?.Stop();
-                sessionTimer?.Dispose();
+                sessionCheckFailures++;
+                Console.WriteLine($"Session verification failed (attempt {sessionCheckFailures}/{maxFailures})");
                 
-                MessageBox.Show("Your session has expired or become invalid. Please login again.", 
-                              "Session Expired", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                
-                // Show login form again and hide main application
-                foreach (Form form in Application.OpenForms.Cast<Form>().ToArray())
+                if (sessionCheckFailures >= maxFailures)
                 {
-                    if (form.Name == "MainForm")
-                    {
-                        form.Hide();
-                        form.Close();
-                    }
+                    await ForceLogout("Your session has expired. Please login again.");
                 }
-                
-                this.Show();
-                txtUsername.Clear();
-                txtPassword.Clear();
-                txtUsername.Focus();
             }
             else
             {
-                Console.WriteLine($"Session verified successfully at {DateTime.Now}");
+                sessionCheckFailures = 0; // Reset failure counter on success
+                Console.WriteLine($"✓ Session verified successfully at {DateTime.Now:HH:mm:ss}");
+                
+                // Check if account status changed
+                if (verifyResult.Message.Contains("disabled") || verifyResult.Message.Contains("expired"))
+                {
+                    await ForceLogout(verifyResult.Message);
+                }
+            }
+        }
+        catch (HttpRequestException httpEx)
+        {
+            sessionCheckFailures++;
+            Console.WriteLine($"Network error during session check: {httpEx.Message}");
+            
+            if (sessionCheckFailures >= maxFailures)
+            {
+                await ForceLogout("Unable to verify session due to network issues. Please check your connection and login again.");
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Session verification error: {ex.Message}");
-            // Continue monitoring despite errors
+            // Don't increment failures for unknown errors, just log them
         }
+    }
+    
+    private async Task SendHeartbeat()
+    {
+        try
+        {
+            // Simple heartbeat to maintain session activity
+            var heartbeatResult = await _authClient.VerifyAsync(currentUserId);
+            if (!heartbeatResult.Success)
+            {
+                Console.WriteLine($"⚠ Heartbeat failed: {heartbeatResult.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Silent heartbeat failures - don't show to user
+            Console.WriteLine($"Heartbeat error: {ex.Message}");
+        }
+    }
+    
+    private async Task ForceLogout(string reason)
+    {
+        // Stop all timers
+        sessionTimer?.Stop();
+        sessionTimer?.Dispose();
+        heartbeatTimer?.Stop();
+        heartbeatTimer?.Dispose();
+        
+        // Show logout message
+        MessageBox.Show(reason, "Session Expired", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        
+        // Close main application and return to login
+        if (this.InvokeRequired)
+        {
+            this.Invoke(new Action(() => {
+                CloseMainFormsAndShowLogin();
+            }));
+        }
+        else
+        {
+            CloseMainFormsAndShowLogin();
+        }
+    }
+    
+    private void CloseMainFormsAndShowLogin()
+    {
+        foreach (Form form in Application.OpenForms.Cast<Form>().ToArray())
+        {
+            if (form.Name == "MainForm" || form.GetType().Name == "MainForm")
+            {
+                form.Hide();
+                form.Close();
+            }
+        }
+        
+        this.Show();
+        this.WindowState = FormWindowState.Normal;
+        this.BringToFront();
+        txtUsername.Clear();
+        txtPassword.Clear();
+        txtUsername.Focus();
+        
+
+    }
+    
+    // Call this when user manually logs out or closes the application
+    public void StopSessionMonitoring()
+    {
+        sessionTimer?.Stop();
+        sessionTimer?.Dispose();
+        heartbeatTimer?.Stop();
+        heartbeatTimer?.Dispose();
+        Console.WriteLine("Session monitoring stopped");
+    }
+    
+    // Override form closing to clean up timers
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        StopSessionMonitoring();
+        base.OnFormClosing(e);
     }
 
     private string GetHardwareId()
@@ -358,16 +456,34 @@ public class AuthApiClient
     }
 }
 
+// Updated AuthResponse to match API format exactly
 public class AuthResponse
 {
+    [JsonPropertyName("success")]
     public bool Success { get; set; }
-    public string Message { get; set; }  // This contains your custom messages!
-    public int? UserId { get; set; }
+    
+    [JsonPropertyName("message")]
+    public string Message { get; set; }  // Custom messages from your app settings
+    
+    [JsonPropertyName("user_id")]
+    public int UserId { get; set; }  // No longer nullable - API returns integer
+    
+    [JsonPropertyName("username")]
     public string Username { get; set; }
+    
+    [JsonPropertyName("email")]
     public string Email { get; set; }
+    
+    [JsonPropertyName("expires_at")]
     public DateTime? ExpiresAt { get; set; }
+    
+    [JsonPropertyName("hwid_locked")]
     public bool? HwidLocked { get; set; }
+    
+    [JsonPropertyName("required_version")]
     public string RequiredVersion { get; set; }
+    
+    [JsonPropertyName("current_version")]
     public string CurrentVersion { get; set; }
 }
 
