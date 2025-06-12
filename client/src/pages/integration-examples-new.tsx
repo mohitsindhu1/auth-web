@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,8 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Copy, Code, Download, ExternalLink, FileText } from "lucide-react";
+import { Copy, Code, Download, ExternalLink, FileText, Edit3, Save, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/header";
 
 interface Application {
@@ -19,16 +21,44 @@ interface Application {
   version: string;
 }
 
+interface CodeTemplates {
+  csharp?: string;
+  python?: string;
+  nodejs?: string;
+  cpp?: string;
+}
+
 export default function IntegrationExamples() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [selectedApp, setSelectedApp] = useState<string>("");
   const [selectedLanguage, setSelectedLanguage] = useState<string>("csharp");
+  const [editingCode, setEditingCode] = useState<string>("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingLanguage, setEditingLanguage] = useState<string>("");
 
   const { data: applications = [] } = useQuery<Application[]>({
     queryKey: ["/api/applications"],
   });
 
+  // For now, use local state for editing - can be connected to backend later
+  const [customTemplates, setCustomTemplates] = useState<CodeTemplates>({});
+
+  const updateCodeTemplate = (language: string, code: string) => {
+    setCustomTemplates(prev => ({
+      ...prev,
+      [language]: code
+    }));
+    toast({
+      title: "Success",
+      description: "Code template updated successfully",
+    });
+    setIsEditing(false);
+  };
+
   const selectedApplication = applications.find(app => app.id.toString() === selectedApp);
+  const isOwner = (user as any)?.role === 'owner';
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -36,6 +66,22 @@ export default function IntegrationExamples() {
       title: "Copied",
       description: "Code copied to clipboard",
     });
+  };
+
+  const startEditing = (language: string, currentCode: string) => {
+    setEditingLanguage(language);
+    setEditingCode(currentCode);
+    setIsEditing(true);
+  };
+
+  const saveCode = () => {
+    updateCodeTemplate(editingLanguage, editingCode);
+  };
+
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditingCode("");
+    setEditingLanguage("");
   };
 
   const baseUrl = window.location.origin;
@@ -2304,20 +2350,57 @@ REQUIREMENTS:
                         <Badge variant="secondary">Session Monitoring</Badge>
                         <Badge variant="secondary">HWID Support</Badge>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyToClipboard(csharpLoginExample)}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy Code
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {isOwner && (
+                          <>
+                            {isEditing && editingLanguage === "csharp" ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={saveCode}
+                                  disabled={updateCodeMutation.isPending}
+                                >
+                                  <Save className="h-4 w-4 mr-2" />
+                                  {updateCodeMutation.isPending ? "Saving..." : "Save"}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={cancelEditing}
+                                >
+                                  <X className="h-4 w-4 mr-2" />
+                                  Cancel
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => startEditing("csharp", codeTemplates.csharp || csharpLoginExample)}
+                              >
+                                <Edit3 className="h-4 w-4 mr-2" />
+                                Edit Code
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(isEditing && editingLanguage === "csharp" ? editingCode : (codeTemplates.csharp || csharpLoginExample))}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy Code
+                        </Button>
+                      </div>
                     </div>
 
                     <div className="relative">
                       <Textarea
-                        value={csharpLoginExample}
-                        readOnly
+                        value={isEditing && editingLanguage === "csharp" ? editingCode : (codeTemplates.csharp || csharpLoginExample)}
+                        readOnly={!isEditing || editingLanguage !== "csharp"}
+                        onChange={(e) => setEditingCode(e.target.value)}
                         className="min-h-[400px] font-mono text-sm"
                       />
                     </div>
