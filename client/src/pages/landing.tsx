@@ -148,9 +148,16 @@ export default function Landing() {
         <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto text-center">
             <div className="mb-8">
-              <Shield className="h-16 w-16 phantom-text mx-auto mb-6 animate-pulse" />
-              <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 animate-fade-in">
-                Phantom Auth
+              <div className="relative inline-block mb-6">
+                <div className="absolute inset-0 animate-ping">
+                  <Shield className="h-16 w-16 phantom-text opacity-30" />
+                </div>
+                <Shield className="h-16 w-16 phantom-text animate-float gpu-accelerated" />
+              </div>
+              <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 animate-fade-in gpu-accelerated">
+                <span className="bg-gradient-to-r from-primary via-primary/80 to-primary bg-clip-text text-transparent animate-gradient">
+                  Phantom Auth
+                </span>
               </h1>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8 animate-fade-in-delay">
                 Secure, scalable authentication API for your applications. 
@@ -159,15 +166,17 @@ export default function Landing() {
               <div className="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-delay-2">
                 <Button 
                   onClick={handleLogin}
-                  className="phantom-button px-8 py-4 text-lg hover:scale-105 transition-transform"
+                  className="phantom-button px-8 py-4 text-lg gpu-accelerated group relative overflow-hidden"
                 >
-                  Get Started
+                  <span className="relative z-10">Get Started</span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-white/20 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="px-8 py-4 text-lg border-primary text-primary hover:bg-primary hover:text-white hover:scale-105 transition-all"
+                  className="px-8 py-4 text-lg border-primary text-primary hover:bg-primary hover:text-white gpu-accelerated group relative overflow-hidden"
                 >
-                  View Documentation
+                  <span className="relative z-10">View Documentation</span>
+                  <div className="absolute inset-0 bg-primary translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300"></div>
                 </Button>
               </div>
             </div>
@@ -187,60 +196,84 @@ export default function Landing() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <Card className="phantom-card hover:scale-105 transition-transform">
-                <CardHeader>
-                  <Zap className="h-10 w-10 phantom-text mb-4" />
-                  <CardTitle>Lightning Fast</CardTitle>
+              <Card className="phantom-card gpu-accelerated group relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <CardHeader className="relative z-10">
+                  <div className="relative">
+                    <Zap className="h-10 w-10 phantom-text mb-4 group-hover:animate-smooth-bounce transition-all duration-300" />
+                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-lg opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
+                  </div>
+                  <CardTitle className="group-hover:text-primary transition-colors duration-300">Lightning Fast</CardTitle>
                   <CardDescription>
                     High-performance authentication with minimal latency and maximum throughput
                   </CardDescription>
                 </CardHeader>
               </Card>
 
-              <Card className="phantom-card hover:scale-105 transition-transform">
-                <CardHeader>
-                  <Shield className="h-10 w-10 phantom-text mb-4" />
-                  <CardTitle>Enterprise Security</CardTitle>
+              <Card className="phantom-card gpu-accelerated group relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <CardHeader className="relative z-10">
+                  <div className="relative">
+                    <Shield className="h-10 w-10 phantom-text mb-4 group-hover:animate-smooth-bounce transition-all duration-300" />
+                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-lg opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
+                  </div>
+                  <CardTitle className="group-hover:text-primary transition-colors duration-300">Enterprise Security</CardTitle>
                   <CardDescription>
                     Bank-grade security with encryption, hashing, and secure session management
                   </CardDescription>
                 </CardHeader>
               </Card>
 
-              <Card className="phantom-card hover:scale-105 transition-transform">
-                <CardHeader>
-                  <Key className="h-10 w-10 phantom-text mb-4" />
-                  <CardTitle>API Key Management</CardTitle>
+              <Card className="phantom-card gpu-accelerated group relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <CardHeader className="relative z-10">
+                  <div className="relative">
+                    <Key className="h-10 w-10 phantom-text mb-4 group-hover:animate-smooth-bounce transition-all duration-300" />
+                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-lg opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
+                  </div>
+                  <CardTitle className="group-hover:text-primary transition-colors duration-300">API Key Management</CardTitle>
                   <CardDescription>
                     Generate, manage, and secure API keys with granular permissions
                   </CardDescription>
                 </CardHeader>
               </Card>
 
-              <Card className="phantom-card hover:scale-105 transition-transform">
-                <CardHeader>
-                  <Users className="h-10 w-10 phantom-text mb-4" />
-                  <CardTitle>User Management</CardTitle>
+              <Card className="phantom-card gpu-accelerated group relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <CardHeader className="relative z-10">
+                  <div className="relative">
+                    <Users className="h-10 w-10 phantom-text mb-4 group-hover:animate-smooth-bounce transition-all duration-300" />
+                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-lg opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
+                  </div>
+                  <CardTitle className="group-hover:text-primary transition-colors duration-300">User Management</CardTitle>
                   <CardDescription>
                     Complete user lifecycle management with registration, login, and profiles
                   </CardDescription>
                 </CardHeader>
               </Card>
 
-              <Card className="phantom-card hover:scale-105 transition-transform">
-                <CardHeader>
-                  <Globe className="h-10 w-10 phantom-text mb-4" />
-                  <CardTitle>Global Scale</CardTitle>
+              <Card className="phantom-card gpu-accelerated group relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <CardHeader className="relative z-10">
+                  <div className="relative">
+                    <Globe className="h-10 w-10 phantom-text mb-4 group-hover:animate-smooth-bounce transition-all duration-300" />
+                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-lg opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
+                  </div>
+                  <CardTitle className="group-hover:text-primary transition-colors duration-300">Global Scale</CardTitle>
                   <CardDescription>
                     Built to scale globally with distributed architecture and CDN support
                   </CardDescription>
                 </CardHeader>
               </Card>
 
-              <Card className="phantom-card hover:scale-105 transition-transform">
-                <CardHeader>
-                  <Lock className="h-10 w-10 phantom-text mb-4" />
-                  <CardTitle>Secure by Default</CardTitle>
+              <Card className="phantom-card gpu-accelerated group relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <CardHeader className="relative z-10">
+                  <div className="relative">
+                    <Lock className="h-10 w-10 phantom-text mb-4 group-hover:animate-smooth-bounce transition-all duration-300" />
+                    <div className="absolute inset-0 bg-primary/20 rounded-full blur-lg opacity-0 group-hover:opacity-50 transition-opacity duration-300"></div>
+                  </div>
+                  <CardTitle className="group-hover:text-primary transition-colors duration-300">Secure by Default</CardTitle>
                   <CardDescription>
                     Best security practices built-in with automatic updates and monitoring
                   </CardDescription>
