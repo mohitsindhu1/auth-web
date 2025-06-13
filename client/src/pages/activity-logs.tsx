@@ -125,7 +125,9 @@ export default function ActivityLogs() {
   const uniqueIPs = new Set(filteredLogs.map(log => log.ipAddress).filter(Boolean)).size;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* Advanced Particle Background */}
+      <AdvancedParticleBackground />
       <Header />
       <div className="container mx-auto px-4 py-8">
         {/* Header */}

@@ -13,6 +13,7 @@ import { Crown, Users, Shield, Edit, Trash2, Lock, Unlock, Search } from "lucide
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
 
 interface User {
   id: string;
@@ -189,8 +190,11 @@ export default function UserManagement() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-background relative">
+      {/* Advanced Particle Background */}
+      <AdvancedParticleBackground />
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold">User Management</h1>
           <p className="text-muted-foreground mt-2">
@@ -395,6 +399,7 @@ export default function UserManagement() {
             </Card>
           ))
         )}
+      </div>
       </div>
     </div>
   );

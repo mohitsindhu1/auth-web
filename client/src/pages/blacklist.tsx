@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, Trash2, Shield, AlertTriangle, Ban, Globe, User, HardDrive, Mail } from "lucide-react";
 import Header from "@/components/header";
+import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
 
 interface BlacklistEntry {
   id: number;
@@ -142,7 +143,9 @@ export default function Blacklist() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* Advanced Particle Background */}
+      <AdvancedParticleBackground />
       <Header />
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
