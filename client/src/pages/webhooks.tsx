@@ -46,6 +46,9 @@ export default function Webhooks() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingWebhook, setEditingWebhook] = useState<Webhook | null>(null);
+  const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false);
+  const [diagnosticsWebhook, setDiagnosticsWebhook] = useState<Webhook | null>(null);
+  const [diagnosticsResult, setDiagnosticsResult] = useState<any>(null);
   const [formData, setFormData] = useState({
     url: "",
     secret: "",

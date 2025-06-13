@@ -1445,6 +1445,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Webhook diagnostics endpoint
+  app.post('/api/webhook-diagnostics', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { webhook_url } = req.body;
+      
+      if (!webhook_url) {
+        return res.status(400).json({ message: "Webhook URL is required" });
+      }
+
+      const diagnostics = {
+        server_info: {
+          region: process.env.REPLIT_DEPLOYMENT_REGION || "unknown",
+          timestamp: new Date().toISOString(),
+          nodejs_version: process.version
+        },
+        request_info: {
+          client_ip: req.ip || req.connection.remoteAddress,
+          user_agent: req.headers['user-agent'],
+          country: req.headers['cf-ipcountry'] || "unknown",
+          forwarded_for: req.headers['x-forwarded-for'],
+          cloudflare_ray: req.headers['cf-ray']
+        },
+        connectivity_test: null as any
+      };
+
+      // Perform connectivity test
+      let testStart = Date.now();
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const testPayload = {
+          test: true,
+          message: "Connectivity test from PhantomAuth",
+          timestamp: new Date().toISOString(),
+          diagnostics: diagnostics.server_info
+        };
+
+        testStart = Date.now(); // Reset timing for actual request
+        const response = await fetch(webhook_url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'PhantomAuth-Diagnostics/1.0'
+          },
+          body: JSON.stringify(testPayload),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        const testDuration = Date.now() - testStart;
+
+        diagnostics.connectivity_test = {
+          success: response.ok,
+          status_code: response.status,
+          response_time_ms: testDuration,
+          response_headers: Object.fromEntries(response.headers.entries()),
+          error: null
+        };
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          diagnostics.connectivity_test.error = errorText;
+        }
+
+      } catch (error) {
+        const testDuration = Date.now() - testStart;
+        diagnostics.connectivity_test = {
+          success: false,
+          status_code: 0,
+          response_time_ms: testDuration,
+          response_headers: {},
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+
+      res.json({
+        success: true,
+        message: "Webhook diagnostics completed",
+        diagnostics
+      });
+
+    } catch (error) {
+      console.error("Error running webhook diagnostics:", error);
+      res.status(500).json({ message: "Failed to run diagnostics" });
+    }
+  });
+
   // Admin routes for user management
   app.get('/api/admin/users', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_USERS), async (req: any, res) => {
     try {
