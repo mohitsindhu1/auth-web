@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Trash2, Edit, Copy, Webhook, Globe, ChevronDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import Header from "@/components/header";
+import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
 
 interface Webhook {
   id: number;

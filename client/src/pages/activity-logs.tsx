@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Activity, Search, Filter, Calendar, User, Globe, Shield, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 import Header from "@/components/header";
+import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
 
 interface ActivityLog {
   id: number;

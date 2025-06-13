@@ -6,6 +6,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useQuery } from "@tanstack/react-query";
+import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
 
 interface DashboardStats {
   totalUsers: number;
@@ -28,7 +29,9 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* Advanced Particle Background */}
+      <AdvancedParticleBackground />
       {/* Navigation */}
       <nav className="phantom-nav fixed w-full top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

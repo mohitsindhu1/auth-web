@@ -14,6 +14,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Link } from "wouter";
+import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
 import { 
   Users, 
   Key, 
@@ -377,7 +378,9 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* Advanced Particle Background */}
+      <AdvancedParticleBackground />
       {/* Navigation */}
       <nav className="phantom-nav fixed w-full top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
