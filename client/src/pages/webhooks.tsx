@@ -49,6 +49,8 @@ export default function Webhooks() {
   const [isDiagnosticsDialogOpen, setIsDiagnosticsDialogOpen] = useState(false);
   const [diagnosticsWebhook, setDiagnosticsWebhook] = useState<Webhook | null>(null);
   const [diagnosticsResult, setDiagnosticsResult] = useState<any>(null);
+  const [testUrl, setTestUrl] = useState("");
+  const [testType, setTestType] = useState("basic");
   const [formData, setFormData] = useState({
     url: "",
     secret: "",
@@ -181,7 +183,7 @@ export default function Webhooks() {
     onSuccess: (data: any) => {
       toast({
         title: "Success",
-        description: `Test webhook sent! Check your Discord channel.`,
+        description: `Test webhook sent! Check your webhook endpoint.`,
       });
     },
     onError: (error: any) => {
@@ -192,6 +194,44 @@ export default function Webhooks() {
       });
     },
   });
+
+  // Webhook diagnostics mutation for Vietnam server testing
+  const diagnosticsMutation = useMutation({
+    mutationFn: async ({ webhook_url, test_type }: { webhook_url: string; test_type: string }) => {
+      return apiRequest("/api/webhook-diagnostics", "POST", { webhook_url, test_type });
+    },
+    onSuccess: (data: any) => {
+      setDiagnosticsResult(data);
+      toast({
+        title: "Diagnostics Complete",
+        description: `Tests completed: ${data.summary.overall_status}`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Diagnostics Failed",
+        description: error.message || "Failed to run diagnostics",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRunDiagnostics = (webhook?: Webhook) => {
+    const url = webhook?.url || testUrl;
+    if (!url.trim()) {
+      toast({
+        title: "Error",
+        description: "Please provide a webhook URL",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setDiagnosticsWebhook(webhook || null);
+    setDiagnosticsResult(null);
+    setIsDiagnosticsDialogOpen(true);
+    diagnosticsMutation.mutate({ webhook_url: url, test_type: testType });
+  };
 
   return (
     <div className="min-h-screen bg-background relative">
@@ -252,6 +292,13 @@ export default function Webhooks() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button 
+              onClick={() => handleRunDiagnostics()}
+              variant="secondary"
+              disabled={diagnosticsMutation.isPending}
+            >
+              {diagnosticsMutation.isPending ? "Testing..." : "Test Connectivity"}
+            </Button>
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -503,6 +550,240 @@ export default function Webhooks() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Vietnam Server Webhook Diagnostics Dialog */}
+        <Dialog open={isDiagnosticsDialogOpen} onOpenChange={setIsDiagnosticsDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>🌐 Vietnam Server Webhook Diagnostics</DialogTitle>
+              <DialogDescription>
+                Test webhook connectivity and performance from Vietnam server location
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Test Configuration */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="test-url">Webhook URL to Test</Label>
+                  <Input
+                    id="test-url"
+                    placeholder="https://discord.com/api/webhooks/... or your custom endpoint"
+                    value={diagnosticsWebhook?.url || testUrl}
+                    onChange={(e) => setTestUrl(e.target.value)}
+                    disabled={!!diagnosticsWebhook}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="test-type">Test Type</Label>
+                  <select
+                    id="test-type"
+                    value={testType}
+                    onChange={(e) => setTestType(e.target.value)}
+                    className="w-full p-2 border rounded-md"
+                  >
+                    <option value="basic">Basic Test (3 tests)</option>
+                    <option value="comprehensive">Comprehensive Test (5 tests)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => handleRunDiagnostics(diagnosticsWebhook || undefined)}
+                  disabled={diagnosticsMutation.isPending}
+                >
+                  {diagnosticsMutation.isPending ? "Running Tests..." : "Run Diagnostics"}
+                </Button>
+                {diagnosticsResult && (
+                  <Button 
+                    variant="outline"
+                    onClick={() => setDiagnosticsResult(null)}
+                  >
+                    Clear Results
+                  </Button>
+                )}
+              </div>
+
+              {/* Loading State */}
+              {diagnosticsMutation.isPending && (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">Testing webhook connectivity from Vietnam server...</p>
+                  <p className="text-sm text-muted-foreground mt-2">This may take up to 60 seconds for comprehensive testing</p>
+                </div>
+              )}
+
+              {/* Diagnostics Results */}
+              {diagnosticsResult && (
+                <div className="space-y-4">
+                  {/* Summary */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <span className={`text-2xl ${diagnosticsResult.summary.overall_status === 'WORKING' ? '🟢' : '🔴'}`}>
+                          {diagnosticsResult.summary.overall_status === 'WORKING' ? '✅' : '❌'}
+                        </span>
+                        Test Summary: {diagnosticsResult.summary.overall_status}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <div className="text-2xl font-bold text-green-600">{diagnosticsResult.summary.successful_tests}</div>
+                          <div className="text-sm text-muted-foreground">Successful</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold text-red-600">{diagnosticsResult.summary.failed_tests}</div>
+                          <div className="text-sm text-muted-foreground">Failed</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-bold">{diagnosticsResult.summary.total_tests}</div>
+                          <div className="text-sm text-muted-foreground">Total Tests</div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Performance Metrics */}
+                  {diagnosticsResult.diagnostics.performance_metrics && Object.keys(diagnosticsResult.diagnostics.performance_metrics).length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>📊 Performance Metrics</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="text-center">
+                            <div className="text-xl font-bold">{diagnosticsResult.diagnostics.performance_metrics.avg_response_time}ms</div>
+                            <div className="text-sm text-muted-foreground">Avg Response</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xl font-bold">{diagnosticsResult.diagnostics.performance_metrics.min_response_time}ms</div>
+                            <div className="text-sm text-muted-foreground">Min Response</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xl font-bold">{diagnosticsResult.diagnostics.performance_metrics.max_response_time}ms</div>
+                            <div className="text-sm text-muted-foreground">Max Response</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xl font-bold">{diagnosticsResult.diagnostics.performance_metrics.success_rate}%</div>
+                            <div className="text-sm text-muted-foreground">Success Rate</div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Server Information */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>🖥️ Server Information</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div><strong>Region:</strong> {diagnosticsResult.diagnostics.server_info.region}</div>
+                        <div><strong>Node.js:</strong> {diagnosticsResult.diagnostics.server_info.nodejs_version}</div>
+                        <div><strong>Platform:</strong> {diagnosticsResult.diagnostics.server_info.platform}</div>
+                        <div><strong>Uptime:</strong> {Math.round(diagnosticsResult.diagnostics.server_info.uptime / 60)} minutes</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Connectivity Tests Details */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>🔍 Detailed Test Results</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {diagnosticsResult.diagnostics.connectivity_tests.map((test: any, index: number) => (
+                          <div key={index} className="border rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="font-semibold flex items-center gap-2">
+                                <span className={test.success ? '🟢' : '🔴'}>
+                                  {test.success ? '✅' : '❌'}
+                                </span>
+                                {test.test_name}
+                              </h4>
+                              <div className="text-sm text-muted-foreground">
+                                {test.response_time_ms}ms
+                                {test.retry_attempts > 0 && ` (${test.retry_attempts} retries)`}
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div><strong>Status:</strong> {test.status_code || 'N/A'}</div>
+                              <div><strong>Success:</strong> {test.success ? 'Yes' : 'No'}</div>
+                            </div>
+                            {test.error && (
+                              <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded text-sm">
+                                <strong>Error:</strong> {test.error}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Recommendations */}
+                  {diagnosticsResult.diagnostics.recommendations && diagnosticsResult.diagnostics.recommendations.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>💡 Recommendations</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <ul className="space-y-2">
+                          {diagnosticsResult.diagnostics.recommendations.map((rec: string, index: number) => (
+                            <li key={index} className="flex items-start gap-2">
+                              <span className="text-blue-500 mt-1">•</span>
+                              <span className="text-sm">{rec}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Quick Test Panel */}
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              🚀 Quick Vietnam Server Test
+            </CardTitle>
+            <CardDescription>
+              Test any webhook URL for Vietnam server connectivity without creating a webhook
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Input
+                placeholder="https://discord.com/api/webhooks/... or your webhook URL"
+                value={testUrl}
+                onChange={(e) => setTestUrl(e.target.value)}
+                className="flex-1"
+              />
+              <select
+                value={testType}
+                onChange={(e) => setTestType(e.target.value)}
+                className="px-3 py-2 border rounded-md"
+              >
+                <option value="basic">Basic</option>
+                <option value="comprehensive">Comprehensive</option>
+              </select>
+              <Button 
+                onClick={() => handleRunDiagnostics()}
+                disabled={diagnosticsMutation.isPending || !testUrl.trim()}
+              >
+                {diagnosticsMutation.isPending ? "Testing..." : "Test Now"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

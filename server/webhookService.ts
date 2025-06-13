@@ -100,8 +100,9 @@ export class WebhookService {
   }
 
   async sendWebhook(webhook: Webhook, payload: WebhookPayload, retryCount: number = 0): Promise<boolean> {
-    const maxRetries = 3;
-    const retryDelay = Math.pow(2, retryCount) * 1000; // Exponential backoff
+    const maxRetries = 5; // Increased for Vietnam server connectivity
+    const baseRetryDelay = 2000; // Base delay increased for international latency
+    const retryDelay = Math.min(baseRetryDelay * Math.pow(2, retryCount), 30000); // Cap at 30 seconds
     
     try {
       // Check if this is a Discord webhook URL
@@ -121,10 +122,13 @@ export class WebhookService {
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'User-Agent': 'PhantomAuth-Webhook/1.0',
+        'User-Agent': 'PhantomAuth-Webhook/1.0 (Vietnam-Optimized)',
         'Accept': 'application/json',
         'Accept-Encoding': 'gzip, deflate, br',
         'Connection': 'keep-alive',
+        'Cache-Control': 'no-cache',
+        'X-Forwarded-For': process.env.REPLIT_DEPLOYMENT_REGION || 'unknown',
+        'X-Server-Region': 'Vietnam-Optimized',
       };
 
       // Only add custom headers for non-Discord webhooks
@@ -132,18 +136,21 @@ export class WebhookService {
         headers['X-Webhook-Timestamp'] = payload.timestamp;
         headers['X-Webhook-Event'] = payload.event;
         headers['X-Webhook-Retry-Count'] = retryCount.toString();
+        headers['X-Webhook-Server-Time'] = new Date().toISOString();
         
         if (signature) {
           headers['X-Webhook-Signature'] = `sha256=${signature}`;
         }
       }
 
+      // Extended timeout optimized for Vietnam server connectivity
+      const timeout = 45000 + (retryCount * 5000); // Increase timeout with retries
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // Extended timeout for international connectivity
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
       
-      console.log(`Sending webhook to: ${webhook.url} (attempt ${retryCount + 1}/${maxRetries + 1})`);
+      console.log(`🌐 Sending webhook to: ${webhook.url} (attempt ${retryCount + 1}/${maxRetries + 1}) - Timeout: ${timeout}ms`);
+      console.log(`📍 Server region: ${process.env.REPLIT_DEPLOYMENT_REGION || 'unknown'}`);
       
-      // Add DNS preflight for better international connectivity
       const startTime = Date.now();
       
       const response = await fetch(webhook.url, {
@@ -151,66 +158,94 @@ export class WebhookService {
         headers,
         body: payloadString,
         signal: controller.signal,
-        // Enhanced global server compatibility settings
+        // Vietnam server optimized settings
         keepalive: true,
         redirect: 'follow',
-        // Additional options for better international delivery
         cache: 'no-cache',
         mode: 'cors',
-        referrerPolicy: 'no-referrer'
-      });
+        referrerPolicy: 'no-referrer',
+        // Additional performance optimizations
+        priority: 'high',
+        duplex: 'half'
+      } as RequestInit);
       
       clearTimeout(timeoutId);
 
       const responseTime = Date.now() - startTime;
-      console.log(`Webhook response status: ${response.status}, response time: ${responseTime}ms`);
+      const serverRegion = response.headers.get('cf-ray') || response.headers.get('server') || 'unknown';
+      
+      console.log(`✅ Webhook response: ${response.status} | Time: ${responseTime}ms | Server: ${serverRegion}`);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Webhook error response (${response.status}):`, errorText);
-        console.error(`Request details: URL=${webhook.url}, Event=${payload.event}, User=${payload.user_data?.id || 'unknown'}`);
+        let errorText = '';
+        try {
+          errorText = await response.text();
+        } catch (e) {
+          errorText = 'Unable to read response';
+        }
         
-        // Enhanced retry logic for international connectivity issues
-        if ((response.status >= 500 || response.status === 429 || response.status === 0) && retryCount < maxRetries) {
-          const adjustedDelay = retryDelay + (Math.random() * 1000); // Add jitter for international requests
-          console.log(`Retrying webhook in ${adjustedDelay}ms... (Status: ${response.status})`);
+        console.error(`❌ Webhook error (${response.status}):`, errorText);
+        console.error(`🔍 Details: URL=${webhook.url}, Event=${payload.event}, User=${payload.user_data?.id || 'unknown'}`);
+        
+        // Enhanced retry logic optimized for Vietnam server connectivity
+        const shouldRetry = retryCount < maxRetries && (
+          response.status >= 500 || // Server errors
+          response.status === 429 || // Rate limiting
+          response.status === 0 ||   // Network errors
+          response.status === 408 || // Request timeout
+          response.status === 502 || // Bad gateway
+          response.status === 503 || // Service unavailable
+          response.status === 504    // Gateway timeout
+        );
+        
+        if (shouldRetry) {
+          const jitter = Math.random() * 3000; // Up to 3 seconds jitter
+          const adjustedDelay = retryDelay + jitter;
+          console.log(`🔄 Retrying webhook in ${Math.round(adjustedDelay)}ms... (Status: ${response.status})`);
           await new Promise(resolve => setTimeout(resolve, adjustedDelay));
           return this.sendWebhook(webhook, payload, retryCount + 1);
         }
       } else {
-        console.log(`Webhook delivered successfully in ${responseTime}ms`);
+        console.log(`🎉 Webhook delivered successfully in ${responseTime}ms to ${serverRegion}`);
       }
 
       return response.ok;
     } catch (error) {
       const errorName = error instanceof Error ? error.name : 'Unknown';
       const errorMessage = error instanceof Error ? error.message : String(error);
+      const duration = Date.now() - (Date.now() - 1000); // Approximate duration
       
-      console.error(`Webhook delivery failed (${errorName}):`, errorMessage);
-      console.error(`Request details: URL=${webhook.url}, Event=${payload.event}, Retry=${retryCount + 1}/${maxRetries + 1}`);
+      console.error(`💥 Webhook delivery failed (${errorName}):`, errorMessage);
+      console.error(`🔍 Details: URL=${webhook.url}, Event=${payload.event}, Attempt=${retryCount + 1}/${maxRetries + 1}`);
       
-      // Enhanced retry logic for international connectivity issues
+      // Enhanced retry logic for Vietnam server connectivity issues
       const isRetryableError = error instanceof Error && (
         error.name === 'AbortError' ||
         error.name === 'TypeError' ||
         error.name === 'TimeoutError' ||
+        error.name === 'NetworkError' ||
         error.message.includes('fetch') ||
         error.message.includes('network') ||
         error.message.includes('timeout') ||
         error.message.includes('ENOTFOUND') ||
         error.message.includes('ECONNRESET') ||
         error.message.includes('ETIMEDOUT') ||
-        error.message.includes('socket hang up')
+        error.message.includes('ECONNREFUSED') ||
+        error.message.includes('EHOSTUNREACH') ||
+        error.message.includes('socket hang up') ||
+        error.message.includes('getaddrinfo') ||
+        error.message.includes('DNS')
       );
       
       if (retryCount < maxRetries && isRetryableError) {
-        const adjustedDelay = retryDelay + (Math.random() * 2000); // Increased jitter for international requests
-        console.log(`Retrying webhook in ${adjustedDelay}ms due to ${errorName}: ${errorMessage}`);
+        const jitter = Math.random() * 5000; // Up to 5 seconds jitter for network issues
+        const adjustedDelay = retryDelay + jitter;
+        console.log(`🔄 Retrying webhook in ${Math.round(adjustedDelay)}ms due to ${errorName}: ${errorMessage}`);
         await new Promise(resolve => setTimeout(resolve, adjustedDelay));
         return this.sendWebhook(webhook, payload, retryCount + 1);
       }
       
-      console.error(`Final webhook delivery failure after ${retryCount + 1} attempts`);
+      console.error(`❌ Final webhook delivery failure after ${retryCount + 1} attempts`);
       return false;
     }
   }

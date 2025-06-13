@@ -1445,92 +1445,223 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Webhook diagnostics endpoint
+  // Enhanced webhook diagnostics endpoint for Vietnam server optimization
   app.post('/api/webhook-diagnostics', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
-      const { webhook_url } = req.body;
+      const { webhook_url, test_type = 'basic' } = req.body;
       
       if (!webhook_url) {
         return res.status(400).json({ message: "Webhook URL is required" });
       }
 
-      const diagnostics = {
-        server_info: {
-          region: process.env.REPLIT_DEPLOYMENT_REGION || "unknown",
-          timestamp: new Date().toISOString(),
-          nodejs_version: process.version
-        },
-        request_info: {
-          client_ip: req.ip || req.connection.remoteAddress,
-          user_agent: req.headers['user-agent'],
-          country: req.headers['cf-ipcountry'] || "unknown",
-          forwarded_for: req.headers['x-forwarded-for'],
-          cloudflare_ray: req.headers['cf-ray']
-        },
-        connectivity_test: null as any
+      const serverInfo = {
+        region: process.env.REPLIT_DEPLOYMENT_REGION || "unknown",
+        timestamp: new Date().toISOString(),
+        nodejs_version: process.version,
+        platform: process.platform,
+        memory_usage: process.memoryUsage(),
+        uptime: process.uptime()
       };
 
-      // Perform connectivity test
-      let testStart = Date.now();
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const requestInfo = {
+        client_ip: req.ip || req.connection.remoteAddress,
+        user_agent: req.headers['user-agent'],
+        country: req.headers['cf-ipcountry'] || "unknown",
+        forwarded_for: req.headers['x-forwarded-for'],
+        cloudflare_ray: req.headers['cf-ray'],
+        accept_language: req.headers['accept-language'],
+        connection_type: req.headers['connection'],
+        via_header: req.headers['via']
+      };
 
-        const testPayload = {
-          test: true,
-          message: "Connectivity test from PhantomAuth",
-          timestamp: new Date().toISOString(),
-          diagnostics: diagnostics.server_info
-        };
+      console.log(`Starting webhook diagnostics for: ${webhook_url}`);
+      console.log(`Test type: ${test_type}, Server region: ${serverInfo.region}`);
 
-        testStart = Date.now(); // Reset timing for actual request
-        const response = await fetch(webhook_url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'PhantomAuth-Diagnostics/1.0'
-          },
-          body: JSON.stringify(testPayload),
-          signal: controller.signal
-        });
+      const diagnostics = {
+        server_info: serverInfo,
+        request_info: requestInfo,
+        connectivity_tests: [] as any[],
+        performance_metrics: {} as any,
+        recommendations: [] as string[]
+      };
 
-        clearTimeout(timeoutId);
-        const testDuration = Date.now() - testStart;
+      // Multiple connectivity tests for comprehensive analysis
+      const testConfigs = [
+        { name: 'Basic Test', timeout: 15000, retry: false },
+        { name: 'Extended Timeout', timeout: 45000, retry: false },
+        { name: 'With Retry Logic', timeout: 30000, retry: true }
+      ];
 
-        diagnostics.connectivity_test = {
-          success: response.ok,
-          status_code: response.status,
-          response_time_ms: testDuration,
-          response_headers: Object.fromEntries(response.headers.entries()),
-          error: null
-        };
+      if (test_type === 'comprehensive') {
+        testConfigs.push(
+          { name: 'High Latency Test', timeout: 60000, retry: true },
+          { name: 'Quick Test', timeout: 5000, retry: false }
+        );
+      }
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          diagnostics.connectivity_test.error = errorText;
-        }
-
-      } catch (error) {
-        const testDuration = Date.now() - testStart;
-        diagnostics.connectivity_test = {
+      for (const config of testConfigs) {
+        const testStart = Date.now();
+        let testResult: any = {
+          test_name: config.name,
           success: false,
           status_code: 0,
-          response_time_ms: testDuration,
+          response_time_ms: 0,
           response_headers: {},
-          error: error instanceof Error ? error.message : String(error)
+          error: null,
+          retry_attempts: 0
+        };
+
+        try {
+          console.log(`Running ${config.name} for ${webhook_url}`);
+          
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+
+          const testPayload = {
+            test: true,
+            test_type: config.name,
+            message: "Vietnam Server Connectivity Test from PhantomAuth",
+            timestamp: new Date().toISOString(),
+            server_diagnostics: serverInfo,
+            client_info: requestInfo
+          };
+
+          let attempt = 0;
+          let lastError = null;
+
+          do {
+            attempt++;
+            const attemptStart = Date.now();
+            
+            try {
+              const response = await fetch(webhook_url, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'User-Agent': 'PhantomAuth-VietnamDiagnostics/1.0',
+                  'X-Test-Type': config.name,
+                  'X-Server-Region': serverInfo.region,
+                  'X-Attempt': attempt.toString()
+                },
+                body: JSON.stringify(testPayload),
+                signal: controller.signal
+              });
+
+              clearTimeout(timeoutId);
+              const responseTime = Date.now() - attemptStart;
+
+              testResult = {
+                ...testResult,
+                success: response.ok,
+                status_code: response.status,
+                response_time_ms: responseTime,
+                response_headers: Object.fromEntries(response.headers.entries()),
+                retry_attempts: attempt - 1
+              };
+
+              if (!response.ok) {
+                try {
+                  const errorText = await response.text();
+                  testResult.error = errorText;
+                } catch (e) {
+                  testResult.error = `HTTP ${response.status} - Unable to read response`;
+                }
+              } else {
+                console.log(`✅ ${config.name} successful in ${responseTime}ms`);
+                break; // Success, exit retry loop
+              }
+
+            } catch (error) {
+              clearTimeout(timeoutId);
+              const responseTime = Date.now() - attemptStart;
+              lastError = error;
+              
+              testResult = {
+                ...testResult,
+                response_time_ms: responseTime,
+                error: error instanceof Error ? error.message : String(error),
+                retry_attempts: attempt - 1
+              };
+
+              console.log(`❌ ${config.name} attempt ${attempt} failed: ${testResult.error}`);
+            }
+          } while (config.retry && attempt < 3 && !testResult.success);
+
+          if (!testResult.success && lastError) {
+            testResult.error = lastError instanceof Error ? lastError.message : String(lastError);
+          }
+
+        } catch (error) {
+          const responseTime = Date.now() - testStart;
+          testResult = {
+            ...testResult,
+            response_time_ms: responseTime,
+            error: error instanceof Error ? error.message : String(error)
+          };
+        }
+
+        diagnostics.connectivity_tests.push(testResult);
+        
+        // Add delay between tests to prevent overwhelming
+        if (testConfigs.indexOf(config) < testConfigs.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      // Performance analysis
+      const successfulTests = diagnostics.connectivity_tests.filter(t => t.success);
+      const failedTests = diagnostics.connectivity_tests.filter(t => !t.success);
+      
+      if (successfulTests.length > 0) {
+        const responseTimes = successfulTests.map(t => t.response_time_ms);
+        diagnostics.performance_metrics = {
+          avg_response_time: Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length),
+          min_response_time: Math.min(...responseTimes),
+          max_response_time: Math.max(...responseTimes),
+          success_rate: Math.round((successfulTests.length / diagnostics.connectivity_tests.length) * 100)
         };
       }
 
+      // Generate recommendations based on test results
+      if (failedTests.length > 0) {
+        diagnostics.recommendations.push("Some connectivity tests failed. Consider checking your webhook endpoint.");
+      }
+      
+      if (diagnostics.performance_metrics.avg_response_time > 10000) {
+        diagnostics.recommendations.push("High response times detected. Consider optimizing your webhook endpoint or using a CDN.");
+      }
+      
+      if (diagnostics.performance_metrics.success_rate < 100) {
+        diagnostics.recommendations.push("Intermittent failures detected. Consider implementing retry logic in your webhook endpoint.");
+      }
+
+      if (successfulTests.length === 0) {
+        diagnostics.recommendations.push("All connectivity tests failed. Please verify your webhook URL and endpoint availability.");
+      } else {
+        diagnostics.recommendations.push("Webhook endpoint is reachable from Vietnam server.");
+      }
+
+      console.log(`Webhook diagnostics completed: ${successfulTests.length}/${diagnostics.connectivity_tests.length} tests passed`);
+
       res.json({
         success: true,
-        message: "Webhook diagnostics completed",
-        diagnostics
+        message: "Enhanced webhook diagnostics completed",
+        diagnostics,
+        summary: {
+          total_tests: diagnostics.connectivity_tests.length,
+          successful_tests: successfulTests.length,
+          failed_tests: failedTests.length,
+          overall_status: successfulTests.length > 0 ? 'WORKING' : 'FAILED'
+        }
       });
 
     } catch (error) {
       console.error("Error running webhook diagnostics:", error);
-      res.status(500).json({ message: "Failed to run diagnostics" });
+      res.status(500).json({ 
+        message: "Failed to run diagnostics",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
