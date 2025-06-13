@@ -2272,7 +2272,7 @@ REQUIREMENTS:
       <AdvancedParticleBackground />
       <Header />
 
-      <main className="flex-1 container py-8">
+      <main className="relative z-10 flex-1 container py-8">
         <div className="max-w-6xl mx-auto">
           <div className="mb-8">
             <h1 className="text-3xl font-bold mb-4">Integration Examples</h1>
