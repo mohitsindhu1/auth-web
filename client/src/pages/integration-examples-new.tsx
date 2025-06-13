@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import Header from "@/components/header";
+import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
 
 interface Application {
   id: number;
@@ -2266,7 +2267,9 @@ REQUIREMENTS:
 */`;
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-background relative">
+      {/* Advanced Particle Background */}
+      <AdvancedParticleBackground />
       <Header />
 
       <main className="flex-1 container py-8">

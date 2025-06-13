@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Code, Save, Eye, Lock, Crown, Shield } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
 
 interface CodeFile {
   id: string;
@@ -155,7 +156,10 @@ export default router;`,
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-background relative">
+      {/* Advanced Particle Background */}
+      <AdvancedParticleBackground />
+      <div className="container mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold">Code Editor</h1>
@@ -318,6 +322,7 @@ export default router;`,
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
