@@ -64,13 +64,13 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+      <section className="relative z-10 pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <div className="mb-8">
               <Shield className="h-16 w-16 phantom-text mx-auto mb-6" />
               <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
-                Welcome back, {user?.firstName || user?.email}
+                Welcome back, {(user as any)?.firstName || (user as any)?.email || 'User'}
               </h1>
               <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
                 Your Phantom Auth dashboard is ready. Manage your API keys, monitor users, and secure your applications.
