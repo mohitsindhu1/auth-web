@@ -99,7 +99,10 @@ export class WebhookService {
     };
   }
 
-  async sendWebhook(webhook: Webhook, payload: WebhookPayload): Promise<boolean> {
+  async sendWebhook(webhook: Webhook, payload: WebhookPayload, retryCount: number = 0): Promise<boolean> {
+    const maxRetries = 3;
+    const retryDelay = Math.pow(2, retryCount) * 1000; // Exponential backoff
+    
     try {
       // Check if this is a Discord webhook URL
       const isDiscordWebhook = webhook.url.includes('discord.com/api/webhooks');
@@ -118,13 +121,17 @@ export class WebhookService {
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
-        'User-Agent': 'KeyAuth-Webhook/1.0',
+        'User-Agent': 'PhantomAuth-Webhook/1.0',
+        'Accept': 'application/json',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Connection': 'keep-alive',
       };
 
       // Only add custom headers for non-Discord webhooks
       if (!isDiscordWebhook) {
         headers['X-Webhook-Timestamp'] = payload.timestamp;
         headers['X-Webhook-Event'] = payload.event;
+        headers['X-Webhook-Retry-Count'] = retryCount.toString();
         
         if (signature) {
           headers['X-Webhook-Signature'] = `sha256=${signature}`;
@@ -132,10 +139,9 @@ export class WebhookService {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout for global server compatibility
+      const timeoutId = setTimeout(() => controller.abort(), 20000); // Increased timeout for global server compatibility
       
-      console.log('Sending webhook to:', webhook.url);
-      console.log('Payload:', payloadString);
+      console.log(`Sending webhook to: ${webhook.url} (attempt ${retryCount + 1}/${maxRetries + 1})`);
       
       const response = await fetch(webhook.url, {
         method: 'POST',
@@ -154,11 +160,33 @@ export class WebhookService {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Webhook error response:', errorText);
+        
+        // Retry on server errors (5xx) and rate limits (429)
+        if ((response.status >= 500 || response.status === 429) && retryCount < maxRetries) {
+          console.log(`Retrying webhook in ${retryDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          return this.sendWebhook(webhook, payload, retryCount + 1);
+        }
       }
 
       return response.ok;
     } catch (error) {
       console.error('Webhook delivery failed:', error);
+      
+      // Retry on network errors
+      if (retryCount < maxRetries && (
+        error instanceof Error && (
+          error.name === 'AbortError' ||
+          error.name === 'TypeError' ||
+          error.message.includes('fetch') ||
+          error.message.includes('network')
+        )
+      )) {
+        console.log(`Retrying webhook in ${retryDelay}ms due to network error...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        return this.sendWebhook(webhook, payload, retryCount + 1);
+      }
+      
       return false;
     }
   }
