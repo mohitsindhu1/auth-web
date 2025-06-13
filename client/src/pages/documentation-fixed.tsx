@@ -7,11 +7,33 @@ import { Shield, Code, Copy, LogOut, Moon, Sun, Book, Zap, Users, Lock } from "l
 import { Link } from "wouter";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
+
+interface Application {
+  id: number;
+  name: string;
+  apiKey: string;
+  version: string;
+}
 
 export default function Documentation() {
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Fetch user's applications for dynamic code examples
+  const { data: applications = [] } = useQuery<Application[]>({
+    queryKey: ["/api/applications"],
+    enabled: !!user,
+  });
+
+  // Use the first application for examples, or provide fallback
+  const primaryApp = applications[0];
+  const apiKey = primaryApp?.apiKey || "YOUR_API_KEY";
+  const appVersion = primaryApp?.version || "1.0.0";
+  const baseUrl = window.location.origin;
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -19,6 +41,180 @@ export default function Documentation() {
       title: "Copied",
       description: "Code copied to clipboard",
     });
+  };
+
+  // Generate dynamic code examples with user's actual API key and settings
+  const generateCSharpExample = () => {
+    return `using System;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
+using System.Management;
+using System.Security.Cryptography;
+using Newtonsoft.Json;
+
+public class PhantomAuth
+{
+    private readonly HttpClient _httpClient;
+    private readonly string _apiKey;
+    private readonly string _baseUrl;
+    private readonly string _appVersion;
+
+    public PhantomAuth(string apiKey = "${apiKey}", string appVersion = "${appVersion}", string baseUrl = "${baseUrl}/api/v1")
+    {
+        _apiKey = apiKey;
+        _baseUrl = baseUrl;
+        _appVersion = appVersion;
+        _httpClient = new HttpClient();
+        _httpClient.DefaultRequestHeaders.Add("X-API-Key", apiKey);
+    }
+
+    public static string GetHardwareId()
+    {
+        try
+        {
+            string hwid = "";
+            
+            ManagementObjectSearcher mos = new ManagementObjectSearcher("SELECT ProcessorId FROM Win32_Processor");
+            foreach (ManagementObject mo in mos.Get())
+            {
+                hwid += mo["ProcessorId"].ToString();
+            }
+            
+            mos = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard");
+            foreach (ManagementObject mo in mos.Get())
+            {
+                hwid += mo["SerialNumber"].ToString();
+            }
+            
+            using (SHA256 sha256Hash = SHA256.Create())
+            {
+                byte[] bytes = sha256Hash.ComputeHash(Encoding.UTF8.GetBytes(hwid));
+                return Convert.ToBase64String(bytes);
+            }
+        }
+        catch
+        {
+            return Environment.MachineName + Environment.UserName;
+        }
+    }
+
+    public async Task<AuthResponse> LoginAsync(string username, string password)
+    {
+        try
+        {
+            var loginData = new
+            {
+                username = username,
+                password = password,
+                hwid = GetHardwareId(),
+                version = _appVersion
+            };
+
+            var json = JsonConvert.SerializeObject(loginData);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync($"{_baseUrl}/auth/login", content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            return JsonConvert.DeserializeObject<AuthResponse>(responseContent);
+        }
+        catch (Exception ex)
+        {
+            return new AuthResponse
+            {
+                success = false,
+                message = $"Login failed: {ex.Message}"
+            };
+        }
+    }
+
+    public async Task<AuthResponse> RegisterAsync(string username, string password, string email)
+    {
+        try
+        {
+            var registerData = new
+            {
+                username = username,
+                password = password,
+                email = email,
+                hwid = GetHardwareId(),
+                version = _appVersion
+            };
+
+            var json = JsonConvert.SerializeObject(registerData);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync($"{_baseUrl}/auth/register", content);
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            return JsonConvert.DeserializeObject<AuthResponse>(responseContent);
+        }
+        catch (Exception ex)
+        {
+            return new AuthResponse
+            {
+                success = false,
+                message = $"Registration failed: {ex.Message}"
+            };
+        }
+    }
+
+    public async Task<bool> VerifySessionAsync(string sessionToken)
+    {
+        try
+        {
+            var verifyData = new { session_token = sessionToken };
+            var json = JsonConvert.SerializeObject(verifyData);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync($"{_baseUrl}/auth/verify", content);
+            var result = await response.Content.ReadAsStringAsync();
+            var authResponse = JsonConvert.DeserializeObject<AuthResponse>(result);
+
+            return authResponse.success;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}
+
+public class AuthResponse
+{
+    public bool success { get; set; }
+    public string message { get; set; }
+    public string user_id { get; set; }
+    public string session_token { get; set; }
+}
+
+// Usage Example:
+// var auth = new PhantomAuth();
+// var result = await auth.LoginAsync("username", "password");
+// if (result.success) {
+//     MessageBox.Show("Login successful!");
+// } else {
+//     MessageBox.Show($"Login failed: {result.message}");
+// }`;
+  };
+
+  const generateQuickStartExample = () => {
+    return `// Quick Start Example with your API key
+var auth = new PhantomAuth("${apiKey}", "${appVersion}");
+var result = await auth.LoginAsync("username", "password");
+
+if (result.success) 
+{
+    MessageBox.Show("Welcome! Login successful.");
+    // Store session token for future requests
+    Properties.Settings.Default.SessionToken = result.session_token;
+    Properties.Settings.Default.Save();
+} 
+else 
+{
+    MessageBox.Show($"Login failed: {result.message}");
+}`;
   };
 
   const handleLogout = () => {
@@ -74,7 +270,7 @@ export default function Documentation() {
               Documentation
             </h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Complete integration guide for Phantom Auth API. Learn how to implement secure authentication in your C# WinForms applications with HWID locking, version control, and blacklist management.
+              Complete integration guide for Phantom Auth API. All code examples are personalized with your actual API keys and settings.
             </p>
           </div>
         </div>
@@ -87,7 +283,7 @@ export default function Documentation() {
               Quick Start Guide
             </CardTitle>
             <CardDescription>
-              Get up and running with Phantom Auth in 5 minutes
+              Get up and running with Phantom Auth in 5 minutes using your personalized settings
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -105,23 +301,41 @@ export default function Documentation() {
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold mb-3">Step 2: Get Your API Key</h3>
-                <p className="text-muted-foreground">
-                  After creating an application, copy the API key from your dashboard. You'll need this for all API requests.
-                </p>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Step 3: Start Making API Calls</h3>
-                <p className="text-muted-foreground">
-                  Use the API endpoints below to register users, authenticate them, and manage sessions.
-                </p>
+                <h3 className="text-lg font-semibold mb-3">Step 2: Your API Configuration</h3>
+                {primaryApp ? (
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <p className="text-sm font-medium mb-2">Current Application:</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Name:</span>
+                        <br />
+                        <code className="font-mono bg-background/50 px-1 rounded">{primaryApp.name}</code>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Version:</span>
+                        <br />
+                        <code className="font-mono bg-background/50 px-1 rounded">{appVersion}</code>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">API Key:</span>
+                        <br />
+                        <code className="font-mono bg-background/50 px-1 rounded text-xs">{apiKey.substring(0, 20)}...</code>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <Alert>
+                    <AlertDescription>
+                      Create an application in your dashboard to see your personalized API configuration.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* C# WinForms Complete Implementation */}
+        {/* C# Implementation */}
         <Card className="phantom-card mb-8">
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -129,7 +343,7 @@ export default function Documentation() {
               Complete C# WinForms Implementation
             </CardTitle>
             <CardDescription>
-              Full implementation with HWID locking, version control, and error handling
+              Full implementation with your actual API key, HWID locking, and error handling
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -140,719 +354,176 @@ export default function Documentation() {
                   <Button 
                     variant="ghost" 
                     size="sm"
-                    onClick={() => copyToClipboard(`using System;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
-using System.Management;
-using System.Security.Cryptography;
-using Newtonsoft.Json;
-
-public class PhantomAuth
-{
-    private readonly HttpClient _httpClient;
-    private readonly string _apiKey;
-    private readonly string _baseUrl;
-    private readonly string _appVersion;
-
-    public PhantomAuth(string apiKey, string appVersion = "1.0.0", string baseUrl = "${window.location.origin}/api/v1")
-    {
-        _apiKey = apiKey;
-        _baseUrl = baseUrl;
-        _appVersion = appVersion;
-        _httpClient = new HttpClient();
-        _httpClient.DefaultRequestHeaders.Add("X-API-Key", apiKey);
-    }
-
-    public static string GetHardwareId()
-    {
-        try
-        {
-            string hwid = "";
-            
-            ManagementObjectSearcher mos = new ManagementObjectSearcher("SELECT ProcessorId FROM Win32_Processor");
-            foreach (ManagementObject mo in mos.Get())
-            {
-                hwid += mo["ProcessorId"].ToString();
-            }
-            
-            mos = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard");
-            foreach (ManagementObject mo in mos.Get())
-            {
-                hwid += mo["SerialNumber"].ToString();
-            }
-            
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(hwid));
-                return Convert.ToBase64String(hash).Substring(0, 32);
-            }
-        }
-        catch
-        {
-            return "HWID-FALLBACK-" + Environment.MachineName;
-        }
-    }
-
-    public async Task<AuthResponse> LoginAsync(string username, string password, bool includeHwid = true)
-    {
-        var data = new { 
-            username, 
-            password, 
-            api_key = _apiKey,
-            version = _appVersion,
-            hwid = includeHwid ? GetHardwareId() : null
-        };
-        
-        var json = JsonConvert.SerializeObject(data);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var response = await _httpClient.PostAsync($"{_baseUrl}/login", content);
-        var responseJson = await response.Content.ReadAsStringAsync();
-        
-        return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
-    }
-
-    public async Task<AuthResponse> RegisterAsync(string username, string email, string password, DateTime? expiresAt = null)
-    {
-        var data = new { 
-            username, 
-            email, 
-            password, 
-            expiresAt,
-            hwid = GetHardwareId()
-        };
-        
-        var json = JsonConvert.SerializeObject(data);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var response = await _httpClient.PostAsync($"{_baseUrl}/register", content);
-        var responseJson = await response.Content.ReadAsStringAsync();
-        
-        return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
-    }
-
-    public async Task<AuthResponse> VerifySessionAsync(int userId)
-    {
-        var data = new { user_id = userId };
-        var json = JsonConvert.SerializeObject(data);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var response = await _httpClient.PostAsync($"{_baseUrl}/verify", content);
-        var responseJson = await response.Content.ReadAsStringAsync();
-        
-        return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
-    }
-}
-
-public class AuthResponse
-{
-    [JsonProperty("success")]
-    public bool Success { get; set; }
-    
-    [JsonProperty("message")]
-    public string Message { get; set; }
-    
-    [JsonProperty("user_id")]
-    public int? UserId { get; set; }
-    
-    [JsonProperty("username")]
-    public string Username { get; set; }
-    
-    [JsonProperty("email")]
-    public string Email { get; set; }
-    
-    [JsonProperty("expires_at")]
-    public DateTime? ExpiresAt { get; set; }
-    
-    [JsonProperty("hwid_locked")]
-    public bool? HwidLocked { get; set; }
-}`)}
+                    onClick={() => copyToClipboard(generateCSharpExample())}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
-                <pre className="text-sm overflow-x-auto whitespace-pre-wrap">
-{`using System;
-using System.Net.Http;
-using System.Text;
-using System.Threading.Tasks;
-using System.Management;
-using System.Security.Cryptography;
-using Newtonsoft.Json;
-
-public class PhantomAuth
-{
-    private readonly HttpClient _httpClient;
-    private readonly string _apiKey;
-    private readonly string _baseUrl;
-    private readonly string _appVersion;
-
-    public PhantomAuth(string apiKey, string appVersion = "1.0.0", string baseUrl = "${window.location.origin}/api/v1")
-    {
-        _apiKey = apiKey;
-        _baseUrl = baseUrl;
-        _appVersion = appVersion;
-        _httpClient = new HttpClient();
-        _httpClient.DefaultRequestHeaders.Add("X-API-Key", apiKey);
-    }
-
-    public static string GetHardwareId()
-    {
-        try
-        {
-            string hwid = "";
-            
-            ManagementObjectSearcher mos = new ManagementObjectSearcher("SELECT ProcessorId FROM Win32_Processor");
-            foreach (ManagementObject mo in mos.Get())
-            {
-                hwid += mo["ProcessorId"].ToString();
-            }
-            
-            mos = new ManagementObjectSearcher("SELECT SerialNumber FROM Win32_BaseBoard");
-            foreach (ManagementObject mo in mos.Get())
-            {
-                hwid += mo["SerialNumber"].ToString();
-            }
-            
-            using (SHA256 sha256 = SHA256.Create())
-            {
-                byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(hwid));
-                return Convert.ToBase64String(hash).Substring(0, 32);
-            }
-        }
-        catch
-        {
-            return "HWID-FALLBACK-" + Environment.MachineName;
-        }
-    }
-
-    public async Task<AuthResponse> LoginAsync(string username, string password, bool includeHwid = true)
-    {
-        var data = new { 
-            username, 
-            password, 
-            api_key = _apiKey,
-            version = _appVersion,
-            hwid = includeHwid ? GetHardwareId() : null
-        };
-        
-        var json = JsonConvert.SerializeObject(data);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var response = await _httpClient.PostAsync($"{_baseUrl}/login", content);
-        var responseJson = await response.Content.ReadAsStringAsync();
-        
-        return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
-    }
-
-    public async Task<AuthResponse> RegisterAsync(string username, string email, string password, DateTime? expiresAt = null)
-    {
-        var data = new { 
-            username, 
-            email, 
-            password, 
-            expiresAt,
-            hwid = GetHardwareId()
-        };
-        
-        var json = JsonConvert.SerializeObject(data);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var response = await _httpClient.PostAsync($"{_baseUrl}/register", content);
-        var responseJson = await response.Content.ReadAsStringAsync();
-        
-        return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
-    }
-
-    public async Task<AuthResponse> VerifySessionAsync(int userId)
-    {
-        var data = new { user_id = userId };
-        var json = JsonConvert.SerializeObject(data);
-        var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        var response = await _httpClient.PostAsync($"{_baseUrl}/verify", content);
-        var responseJson = await response.Content.ReadAsStringAsync();
-        
-        return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
-    }
-}
-
-public class AuthResponse
-{
-    [JsonProperty("success")]
-    public bool Success { get; set; }
-    
-    [JsonProperty("message")]
-    public string Message { get; set; }
-    
-    [JsonProperty("user_id")]
-    public int? UserId { get; set; }
-    
-    [JsonProperty("username")]
-    public string Username { get; set; }
-    
-    [JsonProperty("email")]
-    public string Email { get; set; }
-    
-    [JsonProperty("expires_at")]
-    public DateTime? ExpiresAt { get; set; }
-    
-    [JsonProperty("hwid_locked")]
-    public bool? HwidLocked { get; set; }
-}`}
+                <pre className="text-sm bg-background/50 p-3 rounded border overflow-x-auto">
+                  <code>{generateCSharpExample()}</code>
                 </pre>
               </div>
 
               <div className="bg-muted/50 rounded-lg p-4 mb-4">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Complete WinForms Login Implementation</span>
+                  <span className="text-sm font-medium">Quick Start Example</span>
                   <Button 
                     variant="ghost" 
                     size="sm"
-                    onClick={() => copyToClipboard(`// In your WinForms LoginForm
-public partial class LoginForm : Form
-{
-    private PhantomAuth _auth;
-    private const string API_KEY = "your_api_key_here";
-    private const string APP_VERSION = "1.0.0";
-
-    public LoginForm()
-    {
-        InitializeComponent();
-        _auth = new PhantomAuth(API_KEY, APP_VERSION);
-    }
-
-    private async void btnLogin_Click(object sender, EventArgs e)
-    {
-        try
-        {
-            btnLogin.Enabled = false;
-            btnLogin.Text = "Logging in...";
-
-            string username = txtUsername.Text.Trim();
-            string password = txtPassword.Text;
-
-            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
-            {
-                MessageBox.Show("Please enter both username and password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            AuthResponse result = await _auth.LoginAsync(username, password, true);
-
-            if (result.Success)
-            {
-                Properties.Settings.Default.UserId = result.UserId ?? 0;
-                Properties.Settings.Default.Username = result.Username;
-                Properties.Settings.Default.Save();
-
-                MessageBox.Show(result.Message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                
-                MainForm mainForm = new MainForm();
-                mainForm.Show();
-                this.Hide();
-            }
-            else
-            {
-                HandleLoginError(result.Message);
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            MessageBox.Show("Network error: Unable to connect to authentication server.\\n\\nDetails: " + ex.Message, 
-                          "Connection Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show("An unexpected error occurred:\\n\\n" + ex.Message, 
-                          "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-        finally
-        {
-            btnLogin.Enabled = true;
-            btnLogin.Text = "Login";
-        }
-    }
-
-    private void HandleLoginError(string message)
-    {
-        string errorTitle = "Login Failed";
-        MessageBoxIcon icon = MessageBoxIcon.Error;
-
-        if (message.Contains("version") || message.Contains("update"))
-        {
-            errorTitle = "Update Required";
-            icon = MessageBoxIcon.Warning;
-            DialogResult result = MessageBox.Show(
-                message + "\\n\\nWould you like to download the latest version?",
-                errorTitle, MessageBoxButtons.YesNo, icon);
-            
-            if (result == DialogResult.Yes)
-            {
-                System.Diagnostics.Process.Start("https://yourwebsite.com/download");
-            }
-            Application.Exit();
-        }
-        else if (message.Contains("hardware") || message.Contains("HWID"))
-        {
-            errorTitle = "Hardware Mismatch";
-            icon = MessageBoxIcon.Warning;
-            MessageBox.Show("This account is locked to a different computer!", errorTitle, MessageBoxButtons.OK, icon);
-        }
-        else if (message.Contains("expired"))
-        {
-            errorTitle = "Account Expired";
-            icon = MessageBoxIcon.Warning;
-        }
-        else if (message.Contains("disabled") || message.Contains("paused"))
-        {
-            errorTitle = "Account Disabled";
-            icon = MessageBoxIcon.Warning;
-        }
-        else if (message.Contains("blacklisted") || message.Contains("blocked"))
-        {
-            errorTitle = "Access Blocked";
-            icon = MessageBoxIcon.Stop;
-            MessageBox.Show("Access denied. Contact support if you believe this is an error.", errorTitle, MessageBoxButtons.OK, icon);
-            Application.Exit();
-        }
-
-        MessageBox.Show(message, errorTitle, MessageBoxButtons.OK, icon);
-    }
-
-    private async void LoginForm_Load(object sender, EventArgs e)
-    {
-        // Auto-login check
-        int savedUserId = Properties.Settings.Default.UserId;
-        if (savedUserId > 0)
-        {
-            try
-            {
-                AuthResponse verifyResult = await _auth.VerifySessionAsync(savedUserId);
-                if (verifyResult.Success)
-                {
-                    MainForm mainForm = new MainForm();
-                    mainForm.Show();
-                    this.Hide();
-                    return;
-                }
-            }
-            catch
-            {
-                Properties.Settings.Default.UserId = 0;
-                Properties.Settings.Default.Save();
-            }
-        }
-        
-        // Show HWID for debugging
-        lblHwid.Text = "HWID: " + PhantomAuth.GetHardwareId();
-    }
-}
-
-// Required NuGet packages:
-// Install-Package Newtonsoft.Json
-// Install-Package System.Management`)}
+                    onClick={() => copyToClipboard(generateQuickStartExample())}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
-                <pre className="text-sm overflow-x-auto whitespace-pre-wrap">
-{`// In your WinForms LoginForm
-public partial class LoginForm : Form
-{
-    private PhantomAuth _auth;
-    private const string API_KEY = "your_api_key_here";
-    private const string APP_VERSION = "1.0.0";
-
-    public LoginForm()
-    {
-        InitializeComponent();
-        _auth = new PhantomAuth(API_KEY, APP_VERSION);
-    }
-
-    private async void btnLogin_Click(object sender, EventArgs e)
-    {
-        try
-        {
-            btnLogin.Enabled = false;
-            btnLogin.Text = "Logging in...";
-
-            string username = txtUsername.Text.Trim();
-            string password = txtPassword.Text;
-
-            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
-            {
-                MessageBox.Show("Please enter both username and password.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            AuthResponse result = await _auth.LoginAsync(username, password, true);
-
-            if (result.Success)
-            {
-                Properties.Settings.Default.UserId = result.UserId ?? 0;
-                Properties.Settings.Default.Username = result.Username;
-                Properties.Settings.Default.Save();
-
-                MessageBox.Show(result.Message, "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                
-                MainForm mainForm = new MainForm();
-                mainForm.Show();
-                this.Hide();
-            }
-            else
-            {
-                HandleLoginError(result.Message);
-            }
-        }
-        catch (HttpRequestException ex)
-        {
-            MessageBox.Show("Network error: Unable to connect to authentication server.\\n\\nDetails: " + ex.Message, 
-                          "Connection Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show("An unexpected error occurred:\\n\\n" + ex.Message, 
-                          "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-        finally
-        {
-            btnLogin.Enabled = true;
-            btnLogin.Text = "Login";
-        }
-    }
-
-    private void HandleLoginError(string message)
-    {
-        string errorTitle = "Login Failed";
-        MessageBoxIcon icon = MessageBoxIcon.Error;
-
-        if (message.Contains("version") || message.Contains("update"))
-        {
-            errorTitle = "Update Required";
-            icon = MessageBoxIcon.Warning;
-            DialogResult result = MessageBox.Show(
-                message + "\\n\\nWould you like to download the latest version?",
-                errorTitle, MessageBoxButtons.YesNo, icon);
-            
-            if (result == DialogResult.Yes)
-            {
-                System.Diagnostics.Process.Start("https://yourwebsite.com/download");
-            }
-            Application.Exit();
-        }
-        else if (message.Contains("hardware") || message.Contains("HWID"))
-        {
-            errorTitle = "Hardware Mismatch";
-            icon = MessageBoxIcon.Warning;
-            MessageBox.Show("This account is locked to a different computer!", errorTitle, MessageBoxButtons.OK, icon);
-        }
-        else if (message.Contains("expired"))
-        {
-            errorTitle = "Account Expired";
-            icon = MessageBoxIcon.Warning;
-        }
-        else if (message.Contains("disabled") || message.Contains("paused"))
-        {
-            errorTitle = "Account Disabled";
-            icon = MessageBoxIcon.Warning;
-        }
-        else if (message.Contains("blacklisted") || message.Contains("blocked"))
-        {
-            errorTitle = "Access Blocked";
-            icon = MessageBoxIcon.Stop;
-            MessageBox.Show("Access denied. Contact support if you believe this is an error.", errorTitle, MessageBoxButtons.OK, icon);
-            Application.Exit();
-        }
-
-        MessageBox.Show(message, errorTitle, MessageBoxButtons.OK, icon);
-    }
-
-    private async void LoginForm_Load(object sender, EventArgs e)
-    {
-        // Auto-login check
-        int savedUserId = Properties.Settings.Default.UserId;
-        if (savedUserId > 0)
-        {
-            try
-            {
-                AuthResponse verifyResult = await _auth.VerifySessionAsync(savedUserId);
-                if (verifyResult.Success)
-                {
-                    MainForm mainForm = new MainForm();
-                    mainForm.Show();
-                    this.Hide();
-                    return;
-                }
-            }
-            catch
-            {
-                Properties.Settings.Default.UserId = 0;
-                Properties.Settings.Default.Save();
-            }
-        }
-        
-        // Show HWID for debugging
-        lblHwid.Text = "HWID: " + PhantomAuth.GetHardwareId();
-    }
-}
-
-// Required NuGet packages:
-// Install-Package Newtonsoft.Json
-// Install-Package System.Management`}
+                <pre className="text-sm bg-background/50 p-3 rounded border overflow-x-auto">
+                  <code>{generateQuickStartExample()}</code>
                 </pre>
               </div>
+
+              {primaryApp && (
+                <Alert>
+                  <Shield className="h-4 w-4" />
+                  <AlertDescription>
+                    The code above uses your actual API key: <code className="font-mono text-sm bg-muted px-1 rounded">{apiKey}</code>
+                    <br />
+                    Application: <strong>{primaryApp.name}</strong> (Version: {appVersion})
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {!primaryApp && (
+                <Alert>
+                  <AlertDescription>
+                    Create an application in your dashboard to see personalized code examples with your actual API key.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* API Reference */}
+        {/* API Endpoints Documentation */}
         <Card className="phantom-card mb-8">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Shield className="h-5 w-5 phantom-text mr-2" />
+              <Code className="h-5 w-5 phantom-text mr-2" />
               API Endpoints
             </CardTitle>
             <CardDescription>
-              Complete API documentation with request/response examples
+              Complete API reference with your personalized endpoints
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Alert className="mb-6">
-              <Shield className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Base URL:</strong> {window.location.origin}/api/v1<br />
-                <strong>Database:</strong> PostgreSQL (Neon) - Permanently configured<br />
-                <strong>Authentication:</strong> Include your API key in the X-API-Key header
-              </AlertDescription>
-            </Alert>
-
             <div className="space-y-6">
               <div className="bg-muted/50 rounded-lg p-4">
-                <h4 className="text-lg font-semibold mb-2">POST /register</h4>
-                <p className="text-muted-foreground mb-4">Register a new user in your application</p>
-                <pre className="text-sm bg-background p-3 rounded overflow-x-auto">
-{`{
-  "username": "johndoe",
-  "email": "john@example.com",
-  "password": "securepassword123",
-  "expiresAt": "2024-12-31T23:59:59Z",
-  "hwid": "optional-hardware-id"
-}`}
-                </pre>
-                <Badge variant="secondary" className="mt-2">Response: 200 OK</Badge>
+                <h4 className="font-semibold mb-2">Base URL</h4>
+                <code className="text-sm bg-background/50 p-2 rounded block">{baseUrl}/api/v1</code>
               </div>
 
               <div className="bg-muted/50 rounded-lg p-4">
-                <h4 className="text-lg font-semibold mb-2">POST /login</h4>
-                <p className="text-muted-foreground mb-4">Authenticate user with username, password, version, and HWID</p>
-                <pre className="text-sm bg-background p-3 rounded overflow-x-auto">
-{`{
-  "username": "johndoe",
-  "password": "securepassword123",
-  "api_key": "your_api_key",
-  "version": "1.0.0",
-  "hwid": "hardware-id-string"
-}`}
-                </pre>
-                <Badge variant="secondary" className="mt-2">Response: 200 OK</Badge>
+                <h4 className="font-semibold mb-2">Authentication Header</h4>
+                <code className="text-sm bg-background/50 p-2 rounded block">X-API-Key: {apiKey}</code>
               </div>
 
-              <div className="bg-muted/50 rounded-lg p-4">
-                <h4 className="text-lg font-semibold mb-2">POST /verify</h4>
-                <p className="text-muted-foreground mb-4">Verify if a user session is still valid</p>
-                <pre className="text-sm bg-background p-3 rounded overflow-x-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-semibold mb-2 text-green-600">POST /auth/login</h4>
+                  <p className="text-sm text-muted-foreground mb-2">Authenticate a user</p>
+                  <pre className="text-xs bg-background/50 p-2 rounded overflow-x-auto">
 {`{
-  "user_id": 123
+  "username": "user123",
+  "password": "password",
+  "hwid": "hardware_id",
+  "version": "${appVersion}"
 }`}
-                </pre>
-                <Badge variant="secondary" className="mt-2">Response: 200 OK</Badge>
+                  </pre>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-semibold mb-2 text-blue-600">POST /auth/register</h4>
+                  <p className="text-sm text-muted-foreground mb-2">Register a new user</p>
+                  <pre className="text-xs bg-background/50 p-2 rounded overflow-x-auto">
+{`{
+  "username": "user123",
+  "password": "password", 
+  "email": "user@example.com",
+  "hwid": "hardware_id",
+  "version": "${appVersion}"
+}`}
+                  </pre>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-semibold mb-2 text-purple-600">POST /auth/verify</h4>
+                  <p className="text-sm text-muted-foreground mb-2">Verify session token</p>
+                  <pre className="text-xs bg-background/50 p-2 rounded overflow-x-auto">
+{`{
+  "session_token": "token_here"
+}`}
+                  </pre>
+                </div>
+
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-semibold mb-2 text-red-600">POST /auth/logout</h4>
+                  <p className="text-sm text-muted-foreground mb-2">End user session</p>
+                  <pre className="text-xs bg-background/50 p-2 rounded overflow-x-auto">
+{`{
+  "session_token": "token_here"
+}`}
+                  </pre>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Features Summary */}
-        <Card className="phantom-card mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Users className="h-5 w-5 phantom-text mr-2" />
-              Advanced Features
-            </CardTitle>
-            <CardDescription>
-              All authentication features included in Phantom Auth
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <h4 className="font-semibold">Security Features</h4>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Hardware ID (HWID) locking</li>
-                  <li>• Application version control</li>
-                  <li>• Account expiration dates</li>
-                  <li>• User pause/disable functionality</li>
-                  <li>• Blacklist system (IP, HWID, username, email)</li>
-                  <li>• Activity logging and monitoring</li>
-                </ul>
-              </div>
-              <div className="space-y-3">
-                <h4 className="font-semibold">Management Features</h4>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Real-time dashboard</li>
-                  <li>• User management interface</li>
-                  <li>• Application settings</li>
-                  <li>• Custom error messages</li>
-                  <li>• Webhook notifications</li>
-                  <li>• Session tracking</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Security Best Practices */}
+        {/* Integration Tips */}
         <Card className="phantom-card">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Lock className="h-5 w-5 phantom-text mr-2" />
-              Implementation Guide
+              <Users className="h-5 w-5 phantom-text mr-2" />
+              Integration Tips
             </CardTitle>
             <CardDescription>
-              Step-by-step setup instructions
+              Best practices for implementing Phantom Auth
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-semibold mb-2">1. Setup Your Application</h4>
-                <p className="text-muted-foreground">Create an application in the dashboard and get your API key</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="flex items-start space-x-3">
+                  <Lock className="h-5 w-5 text-green-600 mt-1" />
+                  <div>
+                    <h4 className="font-medium">Secure Storage</h4>
+                    <p className="text-sm text-muted-foreground">Store session tokens securely using Windows Credential Manager or encrypted settings.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-3">
+                  <Shield className="h-5 w-5 text-blue-600 mt-1" />
+                  <div>
+                    <h4 className="font-medium">HWID Locking</h4>
+                    <p className="text-sm text-muted-foreground">Enable hardware ID locking in your application settings for enhanced security.</p>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <h4 className="font-semibold mb-2">2. Install Required Packages</h4>
-                <p className="text-muted-foreground">Install Newtonsoft.Json and System.Management NuGet packages</p>
-              </div>
+              <div className="space-y-4">
+                <div className="flex items-start space-x-3">
+                  <Zap className="h-5 w-5 text-yellow-600 mt-1" />
+                  <div>
+                    <h4 className="font-medium">Error Handling</h4>
+                    <p className="text-sm text-muted-foreground">Always handle network errors and provide user-friendly error messages.</p>
+                  </div>
+                </div>
 
-              <div>
-                <h4 className="font-semibold mb-2">3. Add PhantomAuth Class</h4>
-                <p className="text-muted-foreground">Copy the complete PhantomAuth class to your project</p>
-              </div>
-
-              <div>
-                <h4 className="font-semibold mb-2">4. Implement Login Form</h4>
-                <p className="text-muted-foreground">Use the provided WinForms implementation with error handling</p>
-              </div>
-
-              <div>
-                <h4 className="font-semibold mb-2">5. Configure Features</h4>
-                <p className="text-muted-foreground">Enable HWID locking, set version requirements, and configure custom messages in dashboard</p>
-              </div>
-
-              <div>
-                <h4 className="font-semibold mb-2">6. Test Authentication</h4>
-                <p className="text-muted-foreground">Create test users and verify all features work correctly</p>
+                <div className="flex items-start space-x-3">
+                  <Code className="h-5 w-5 text-purple-600 mt-1" />
+                  <div>
+                    <h4 className="font-medium">Version Control</h4>
+                    <p className="text-sm text-muted-foreground">Include version checking to ensure users have the latest application version.</p>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
