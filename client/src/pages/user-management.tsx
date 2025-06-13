@@ -195,19 +195,19 @@ export default function UserManagement() {
       <AdvancedParticleBackground />
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold">User Management</h1>
-          <p className="text-muted-foreground mt-2">
-            Manage user roles, permissions, and access control
-          </p>
+          <div>
+            <h1 className="text-3xl font-bold">User Management</h1>
+            <p className="text-muted-foreground mt-2">
+              Manage user roles, permissions, and access control
+            </p>
+          </div>
+          {user?.userPermissions?.role === 'owner' && (
+            <Badge variant="secondary" className="flex items-center gap-2">
+              <Crown className="h-4 w-4" />
+              Site Owner
+            </Badge>
+          )}
         </div>
-        {user?.userPermissions?.role === 'owner' && (
-          <Badge variant="secondary" className="flex items-center gap-2">
-            <Crown className="h-4 w-4" />
-            Site Owner
-          </Badge>
-        )}
-      </div>
 
       {/* Search and Filters */}
       <Card className="mb-6">

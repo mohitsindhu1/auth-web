@@ -7,6 +7,7 @@ import { Shield, Code, Copy, LogOut, Moon, Sun, Book, Zap, Users, Lock } from "l
 import { Link } from "wouter";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/hooks/use-toast";
+import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
 
 export default function Documentation() {
   const { theme, toggleTheme } = useTheme();
@@ -25,7 +26,9 @@ export default function Documentation() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* Advanced Particle Background */}
+      <AdvancedParticleBackground />
       {/* Navigation */}
       <nav className="phantom-nav fixed w-full top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

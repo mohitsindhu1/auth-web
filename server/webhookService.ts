@@ -132,7 +132,7 @@ export class WebhookService {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout for global server compatibility
       
       console.log('Sending webhook to:', webhook.url);
       console.log('Payload:', payloadString);
@@ -142,6 +142,9 @@ export class WebhookService {
         headers,
         body: payloadString,
         signal: controller.signal,
+        // Global server compatibility settings
+        keepalive: true,
+        redirect: 'follow'
       });
       
       clearTimeout(timeoutId);

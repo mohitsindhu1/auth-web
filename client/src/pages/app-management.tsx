@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { ArrowLeft, Plus, Settings, Users, Key, Trash2, Edit, Eye, EyeOff, Copy, Play, Pause, RotateCcw, HardDrive } from "lucide-react";
 import Header from "@/components/header";
+import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
 
 interface Application {
   id: number;
@@ -421,7 +422,9 @@ export default function AppManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* Advanced Particle Background */}
+      <AdvancedParticleBackground />
       <Header />
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
