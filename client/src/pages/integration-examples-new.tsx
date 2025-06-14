@@ -291,8 +291,8 @@ public partial class LoginForm : Form
         var lblPassword = new Label { Text = "Password:", Location = new System.Drawing.Point(50, 90), Size = new System.Drawing.Size(80, 23) };
         txtPassword = new TextBox { Location = new System.Drawing.Point(140, 90), Size = new System.Drawing.Size(200, 23), UseSystemPasswordChar = true };
 
-        var lblEmail = new Label { Text = "Email:", Location = new System.Drawing.Point(50, 130), Size = new System.Drawing.Size(80, 23) };
-        txtEmail = new TextBox { Location = new System.Drawing.Point(140, 130), Size = new System.Drawing.Size(200, 23) };
+        var lblEmail = new Label { Text = "Email (Optional):", Location = new System.Drawing.Point(50, 130), Size = new System.Drawing.Size(80, 23) };
+        txtEmail = new TextBox { Location = new System.Drawing.Point(140, 130), Size = new System.Drawing.Size(200, 23), PlaceholderText = "Optional" };
 
         var lblLicenseKey = new Label { Text = "License Key:", Location = new System.Drawing.Point(50, 170), Size = new System.Drawing.Size(80, 23) };
         txtLicenseKey = new TextBox { Location = new System.Drawing.Point(140, 170), Size = new System.Drawing.Size(200, 23), PlaceholderText = "Required for registration" };
@@ -385,13 +385,12 @@ public partial class LoginForm : Form
     {
         try
         {
-            // Validate input fields
+            // Validate input fields (email is optional)
             if (string.IsNullOrWhiteSpace(txtUsername.Text) || 
                 string.IsNullOrWhiteSpace(txtPassword.Text) || 
-                string.IsNullOrWhiteSpace(txtEmail.Text) ||
                 string.IsNullOrWhiteSpace(txtLicenseKey.Text))
             {
-                MessageBox.Show("Please fill in all required fields (Username, Password, Email, License Key)", "Validation Error", 
+                MessageBox.Show("Please fill in all required fields (Username, Password, License Key)", "Validation Error", 
                               MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -899,10 +898,11 @@ class LoginWindow:
         self.password_entry = tk.Entry(self.root, font=("Arial", 10), width=25, show="*")
         self.password_entry.place(x=140, y=90)
         
-        # Email
-        tk.Label(self.root, text="Email:", font=("Arial", 10)).place(x=50, y=130)
+        # Email (Optional)
+        tk.Label(self.root, text="Email (Optional):", font=("Arial", 10)).place(x=50, y=130)
         self.email_entry = tk.Entry(self.root, font=("Arial", 10), width=25)
         self.email_entry.place(x=140, y=130)
+        self.email_entry.insert(0, "Optional")
         
         # License Key
         tk.Label(self.root, text="License Key:", font=("Arial", 10)).place(x=50, y=170)
@@ -1020,8 +1020,12 @@ class LoginWindow:
             email = self.email_entry.get().strip()
             license_key = self.license_key_entry.get().strip()
             
-            if not username or not password or not email or not license_key:
-                messagebox.showwarning("Validation Error", "Please fill in all required fields (Username, Password, Email, License Key)")
+            # Clean up email field - if it's the placeholder text or empty, set to None
+            if email == "Optional" or not email:
+                email = None
+            
+            if not username or not password or not license_key:
+                messagebox.showwarning("Validation Error", "Please fill in all required fields (Username, Password, License Key)")
                 return
                 
             self.register_btn.config(state='disabled')

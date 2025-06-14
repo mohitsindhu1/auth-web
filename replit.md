@@ -146,6 +146,7 @@ Changelog:
   * Updated integration examples (C# and Python) to include license key fields
   * Fixed application display caching issues using refetchQueries
   * Enhanced user registration with license key association and usage tracking
+  * Made email field optional in registration process while keeping username, password, and license key mandatory
 ```
 
 ## User Preferences
