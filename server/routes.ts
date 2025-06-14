@@ -166,6 +166,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Logout route
+  app.post('/api/logout', async (req: any, res) => {
+    try {
+      // Destroy the session
+      req.session.destroy((err: any) => {
+        if (err) {
+          console.error('Error destroying session:', err);
+          return res.status(500).json({ message: "Failed to logout" });
+        }
+        
+        // Clear the session cookie
+        res.clearCookie('connect.sid');
+        res.json({ message: "Logged out successfully" });
+      });
+    } catch (error) {
+      console.error("Error in logout:", error);
+      res.status(500).json({ message: "Failed to logout" });
+    }
+  });
+
   // Dashboard stats with real-time information
   app.get('/api/dashboard/stats', isAuthenticated, async (req: any, res) => {
     try {

@@ -147,6 +147,14 @@ Changelog:
   * Fixed application display caching issues using refetchQueries
   * Enhanced user registration with license key association and usage tracking
   * Made email field optional in registration process while keeping username, password, and license key mandatory
+- June 14, 2025. Fixed user management and logout functionality
+  * Fixed apiRequest function parameter structure for proper API calls
+  * Corrected user create/delete operations with proper body formatting
+  * Fixed pause/unpause methods to use correct HTTP methods (POST instead of PATCH)
+  * Enhanced logout functionality to properly clear Firebase and backend sessions
+  * Added Google OAuth account selection prompt to prevent automatic re-login
+  * Implemented complete session cleanup including localStorage and sessionStorage
+  * Added backend /api/logout route for proper server-side session destruction
 ```
 
 ## User Preferences

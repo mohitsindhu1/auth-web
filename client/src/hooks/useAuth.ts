@@ -27,13 +27,27 @@ export function useAuth() {
 
   const logout = async () => {
     try {
+      // Clear local storage and session storage
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Sign out from Firebase
       await signOutUser();
-      // Optionally call backend logout
-      window.location.href = "/api/logout";
+      
+      // Call backend logout to clear server session
+      await fetch('/api/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+      // Force a complete page reload to clear all cached data
+      window.location.href = "/";
     } catch (error) {
       console.error("Error signing out:", error);
-      // Force logout by redirecting to backend logout
-      window.location.href = "/api/logout";
+      // Force logout by clearing everything and redirecting
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = "/";
     }
   };
 

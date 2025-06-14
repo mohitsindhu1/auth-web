@@ -42,11 +42,12 @@ let googleProvider: GoogleAuthProvider | null = null;
 
 if (hasValidConfig && auth) {
   googleProvider = new GoogleAuthProvider();
-  // Configure Google provider
+  // Configure Google provider to always show account selection
   googleProvider.addScope('email');
   googleProvider.addScope('profile');
   googleProvider.setCustomParameters({
-    prompt: 'select_account'
+    prompt: 'select_account',
+    hd: '' // Force account picker for all domains
   });
 }
 
@@ -55,12 +56,22 @@ export const signInWithGoogle = async () => {
   if (!auth || !googleProvider) {
     throw new Error('Firebase not properly configured');
   }
+  
+  // Always ensure fresh provider with account selection
+  const freshProvider = new GoogleAuthProvider();
+  freshProvider.addScope('email');
+  freshProvider.addScope('profile');
+  freshProvider.setCustomParameters({
+    prompt: 'select_account',
+    hd: '' // Force account picker for all domains
+  });
+  
   try {
     // Try popup first, fallback to redirect if popup is blocked
-    return await signInWithPopup(auth, googleProvider);
+    return await signInWithPopup(auth, freshProvider);
   } catch (error: any) {
     if (error.code === 'auth/popup-blocked') {
-      return signInWithRedirect(auth, googleProvider);
+      return signInWithRedirect(auth, freshProvider);
     }
     throw error;
   }
@@ -70,7 +81,17 @@ export const signInWithGoogleRedirect = () => {
   if (!auth || !googleProvider) {
     throw new Error('Firebase not properly configured');
   }
-  return signInWithRedirect(auth, googleProvider);
+  
+  // Create fresh provider for redirect as well
+  const freshProvider = new GoogleAuthProvider();
+  freshProvider.addScope('email');
+  freshProvider.addScope('profile');
+  freshProvider.setCustomParameters({
+    prompt: 'select_account',
+    hd: '' // Force account picker for all domains
+  });
+  
+  return signInWithRedirect(auth, freshProvider);
 };
 
 export const handleRedirectResult = () => {
