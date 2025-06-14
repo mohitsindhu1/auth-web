@@ -139,6 +139,13 @@ Changelog:
   * Added PATCH route support for application updates
   * Resolved TypeScript typing issues for data display
   * Fixed authentication middleware to handle account ID headers properly
+- June 14, 2025. Implemented license key-based user registration system
+  * Added /api/v1/register endpoint with mandatory license key validation
+  * License keys now enforce usage limits and track current user count
+  * Registration requires valid license key with available slots
+  * Updated integration examples (C# and Python) to include license key fields
+  * Fixed application display caching issues using refetchQueries
+  * Enhanced user registration with license key association and usage tracking
 ```
 
 ## User Preferences
