@@ -207,10 +207,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Clear-Site-Data': '"cache", "cookies", "storage", "executionContexts"'
       });
       
-      // For GET requests, redirect to home page
+      // For GET requests, redirect to Firebase login page with logout flag
       if (req.method === 'GET') {
-        console.log("GET logout - Redirecting to home");
-        return res.redirect('/?logged_out=true');
+        console.log("GET logout - Redirecting to Firebase login");
+        return res.redirect('/firebase-login?logged_out=true');
       }
       
       // For POST requests, return JSON

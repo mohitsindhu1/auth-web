@@ -31,19 +31,16 @@ export default function FirebaseLogin() {
     // Check if user was deliberately logged out
     const urlParams = new URLSearchParams(window.location.search);
     const wasLoggedOut = urlParams.get('logged_out') === 'true' || 
-                        urlParams.get('force_logout') === 'true' ||
-                        urlParams.get('force_reset') === 'true' ||
-                        urlParams.get('no_cache') ||
-                        urlParams.get('emergency_logout') === 'true' ||
-                        localStorage.getItem('logout_in_progress') === 'true' ||
-                        localStorage.getItem('force_logout_complete') === 'true';
+                        urlParams.get('logout_complete') === 'true' ||
+                        localStorage.getItem('user_logged_out') === 'true' ||
+                        sessionStorage.getItem('user_logged_out') === 'true';
 
     if (wasLoggedOut) {
-      console.log("LOGOUT DETECTED - Preventing all authentication attempts");
+      console.log("User logged out - authentication disabled");
       
-      // Clear all logout flags and authentication data
-      localStorage.clear();
-      sessionStorage.clear();
+      // Clear logout flags but keep authentication disabled
+      localStorage.removeItem('user_logged_out');
+      sessionStorage.removeItem('user_logged_out');
       
       // Clear URL parameters
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -52,13 +49,13 @@ export default function FirebaseLogin() {
       setLoading(false);
       setAuthenticating(false);
       
-      console.log("Login page reset - user must manually authenticate");
+      // Don't set up any authentication listeners after logout
       return;
     }
 
-    // Handle redirect result
+    // Handle redirect result only if not logged out
     handleRedirectResult().then((result) => {
-      if (result && !authenticationInProgress) {
+      if (result && !authenticationInProgress && !wasLoggedOut) {
         authenticationInProgress = true;
         setUser(result.user);
         authenticateWithBackend(result.user);
@@ -73,11 +70,11 @@ export default function FirebaseLogin() {
       setLoading(false);
     });
 
-    // Listen for auth state changes
+    // Only listen for auth state changes if user wasn't logged out
     const unsubscribe = onAuthStateChange((user: User | null) => {
-      // Don't auto-authenticate if logout was recent
-      if (wasLoggedOut) {
-        console.log("Ignoring auth state change due to recent logout");
+      // Skip all authentication if user deliberately logged out
+      if (wasLoggedOut || localStorage.getItem('user_logged_out') === 'true') {
+        console.log("Ignoring auth state change - user logged out");
         return;
       }
 

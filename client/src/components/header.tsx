@@ -23,37 +23,22 @@ export default function Header() {
     }
   };
 
-  const { logout } = useAuth();
-
-  const handleLogout = async () => {
-    console.log("🚪 Logout button clicked - starting immediate logout...");
+  const handleLogout = () => {
+    console.log("Logout button clicked");
     
-    // Set logout flag immediately
-    localStorage.setItem('logout_in_progress', 'true');
-    sessionStorage.setItem('logout_in_progress', 'true');
+    // Set logout flag BEFORE clearing storage
+    localStorage.setItem('user_logged_out', 'true');
+    sessionStorage.setItem('user_logged_out', 'true');
     
-    try {
-      await logout();
-      console.log("✅ Logout process completed");
-    } catch (error) {
-      console.error("❌ Logout error:", error);
-      
-      // Emergency force logout
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // Clear all cookies aggressively
-      document.cookie.split(";").forEach((c) => {
-        const eqPos = c.indexOf("=");
-        const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.replit.app;`;
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.replit.dev;`;
-      });
-      
-      // Force hard redirect
-      window.location.href = `/?emergency_logout=true&t=${Date.now()}`;
-    }
+    // Clear cookies
+    document.cookie.split(";").forEach((c) => {
+      const eqPos = c.indexOf("=");
+      const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
+    });
+    
+    // Redirect to backend logout endpoint which will handle everything
+    window.location.href = '/api/logout';
   };
 
   if (isAuthenticated) {
