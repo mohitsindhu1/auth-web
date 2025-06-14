@@ -21,6 +21,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 
 interface Application {
   id: number;
+  userId: string;
   name: string;
   description: string;
   apiKey: string;
