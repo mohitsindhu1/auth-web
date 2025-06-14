@@ -464,7 +464,7 @@ export default function AppManagement() {
                   <DialogTitle>Application Settings</DialogTitle>
                   <DialogDescription>Update your application configuration</DialogDescription>
                 </DialogHeader>
-              <div className="grid gap-4 py-4">
+                <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Application Name</Label>
@@ -528,8 +528,10 @@ export default function AppManagement() {
                   {updateApplicationMutation.isPending ? "Updating..." : "Update Application"}
                 </Button>
               </div>
-            </DialogContent>
-          </Dialog>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
