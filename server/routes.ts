@@ -359,6 +359,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // License Key Management Routes
+  
+  // Get all license keys for an application
+  app.get('/api/applications/:id/licenses', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const application = await storage.getApplication(applicationId);
+      
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      const userId = req.user.claims.sub;
+      if (application.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const licenses = await storage.getAllLicenseKeys(applicationId);
+      res.json(licenses);
+    } catch (error) {
+      console.error("Error fetching license keys:", error);
+      res.status(500).json({ message: "Failed to fetch license keys" });
+    }
+  });
+
+  // Create a new license key
+  app.post('/api/applications/:id/licenses', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const application = await storage.getApplication(applicationId);
+      
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      const userId = req.user.claims.sub;
+      if (application.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const validatedData = insertLicenseKeySchema.parse(req.body);
+      const license = await storage.createLicenseKey(applicationId, validatedData);
+      res.status(201).json(license);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error creating license key:", error);
+      res.status(500).json({ message: "Failed to create license key" });
+    }
+  });
+
+  // Generate a random license key
+  app.post('/api/applications/:id/licenses/generate', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const application = await storage.getApplication(applicationId);
+      
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      const userId = req.user.claims.sub;
+      if (application.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { maxUsers = 1, validityDays, description } = req.body;
+      
+      if (!validityDays || validityDays < 1) {
+        return res.status(400).json({ message: "validityDays is required and must be greater than 0" });
+      }
+
+      // Generate a secure license key
+      const { nanoid } = await import('nanoid');
+      const appPrefix = application.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4);
+      const licenseKey = `${appPrefix}-${nanoid(8)}-${nanoid(8)}-${nanoid(8)}`;
+      
+      const license = await storage.createLicenseKey(applicationId, {
+        licenseKey,
+        maxUsers,
+        validityDays,
+        description
+      });
+
+      res.status(201).json(license);
+    } catch (error) {
+      console.error("Error generating license key:", error);
+      res.status(500).json({ message: "Failed to generate license key" });
+    }
+  });
+
+  // Delete a license key
+  app.delete('/api/applications/:id/licenses/:licenseId', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const licenseId = parseInt(req.params.licenseId);
+      
+      const application = await storage.getApplication(applicationId);
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      const userId = req.user.claims.sub;
+      if (application.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const license = await storage.getLicenseKey(licenseId);
+      if (!license || license.applicationId !== applicationId) {
+        return res.status(404).json({ message: "License key not found" });
+      }
+
+      const deleted = await storage.deleteLicenseKey(licenseId);
+      if (!deleted) {
+        return res.status(404).json({ message: "License key not found" });
+      }
+
+      res.json({ message: "License key deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting license key:", error);
+      res.status(500).json({ message: "Failed to delete license key" });
+    }
+  });
+
   app.get('/api/applications/:id/users', isAuthenticated, async (req: any, res) => {
     try {
       const applicationId = parseInt(req.params.id);

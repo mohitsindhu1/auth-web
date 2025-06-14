@@ -444,18 +444,26 @@ export default function AppManagement() {
               <p className="text-muted-foreground">{application.description}</p>
             </div>
           </div>
-          <Dialog open={isEditAppDialogOpen} onOpenChange={setIsEditAppDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Application Settings</DialogTitle>
-                <DialogDescription>Update your application configuration</DialogDescription>
-              </DialogHeader>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => setLocation(`/app/${appId}/licenses`)}
+              variant="outline"
+            >
+              <Key className="mr-2 h-4 w-4" />
+              License Keys
+            </Button>
+            <Dialog open={isEditAppDialogOpen} onOpenChange={setIsEditAppDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Settings className="mr-2 h-4 w-4" />
+                  Settings
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Application Settings</DialogTitle>
+                  <DialogDescription>Update your application configuration</DialogDescription>
+                </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
