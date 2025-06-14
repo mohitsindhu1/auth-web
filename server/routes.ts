@@ -2342,13 +2342,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin routes for user management  
-  app.get('/api/admin/users', async (req: any, res) => {
+  // Admin routes for user management
+  app.get('/api/admin/users', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_USERS), async (req: any, res) => {
     try {
-      console.log("Admin users endpoint called - bypassing auth temporarily");
       const users = await storage.getAllUsers();
-      console.log("Fetched users count:", users.length);
-      console.log("Users data:", users);
       res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);

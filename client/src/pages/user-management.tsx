@@ -67,22 +67,15 @@ export default function UserManagement() {
   const canManageUsers = (user as any)?.userPermissions?.role === 'owner' || 
                         (user as any)?.userPermissions?.permissions?.includes('manage_users');
 
-  // Fetch all users
+  // Fetch all users - always try to fetch, let backend handle permissions
   const { data: usersData, isLoading, error } = useQuery({
     queryKey: ['/api/admin/users'],
-    enabled: canManageUsers,
+    enabled: !authLoading, // Only disable while auth is loading
     retry: false
   });
 
   // Ensure users is always an array
   const users = Array.isArray(usersData) ? usersData : [];
-  
-  // Debug logging
-  console.log('usersData:', usersData);
-  console.log('users array:', users);
-  console.log('isLoading:', isLoading);
-  console.log('error:', error);
-  console.log('canManageUsers:', canManageUsers);
 
   // Update user mutation
   const updateUserMutation = useMutation({
@@ -186,7 +179,7 @@ export default function UserManagement() {
     );
   }
 
-  if (!canManageUsers) {
+  if (!authLoading && !canManageUsers && !usersData) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Alert>
