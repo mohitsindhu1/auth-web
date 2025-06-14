@@ -26,19 +26,20 @@ export default function Header() {
   const handleLogout = () => {
     console.log("Logout button clicked");
     
-    // Set logout flag BEFORE clearing storage
-    localStorage.setItem('user_logged_out', 'true');
-    sessionStorage.setItem('user_logged_out', 'true');
+    // Clear all storage immediately
+    localStorage.clear();
+    sessionStorage.clear();
     
-    // Clear cookies
+    // Clear all cookies
     document.cookie.split(";").forEach((c) => {
       const eqPos = c.indexOf("=");
       const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
       document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.replit.app;`;
     });
     
-    // Redirect to backend logout endpoint which will handle everything
-    window.location.href = '/api/logout';
+    // Force immediate redirect to home page
+    window.location.href = '/';
   };
 
   if (isAuthenticated) {
