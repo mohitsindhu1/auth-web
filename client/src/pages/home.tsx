@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useQuery } from "@tanstack/react-query";
 import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
+import { useEffect } from "react";
 
 interface DashboardStats {
   totalUsers: number;
@@ -18,6 +19,19 @@ interface DashboardStats {
 export default function Home() {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
+
+  // Check for logout parameters and clear them
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('logged_out') === 'true' || urlParams.get('force_logout') === 'true') {
+      // Clear logout flags
+      localStorage.removeItem('logout_in_progress');
+      sessionStorage.removeItem('logout_in_progress');
+      
+      // Clean URL without reload
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
   
   // Fetch dashboard stats for quick overview
   const { data: stats } = useQuery<DashboardStats>({

@@ -28,6 +28,20 @@ export default function FirebaseLogin() {
   useEffect(() => {
     let authenticationInProgress = false;
 
+    // Check if user was deliberately logged out
+    const urlParams = new URLSearchParams(window.location.search);
+    const wasLoggedOut = urlParams.get('logged_out') === 'true' || 
+                        urlParams.get('force_logout') === 'true' ||
+                        localStorage.getItem('logout_in_progress') === 'true';
+
+    if (wasLoggedOut) {
+      console.log("User was logged out, preventing auto-authentication");
+      localStorage.removeItem('logout_in_progress');
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     // Handle redirect result
     handleRedirectResult().then((result) => {
       if (result && !authenticationInProgress) {
@@ -47,6 +61,12 @@ export default function FirebaseLogin() {
 
     // Listen for auth state changes
     const unsubscribe = onAuthStateChange((user: User | null) => {
+      // Don't auto-authenticate if logout was recent
+      if (wasLoggedOut) {
+        console.log("Ignoring auth state change due to recent logout");
+        return;
+      }
+
       if (user && !loading && !authenticationInProgress && !authenticating) {
         authenticationInProgress = true;
         setUser(user);
