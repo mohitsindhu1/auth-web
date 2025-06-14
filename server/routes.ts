@@ -1779,6 +1779,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/blacklist', isAuthenticated, async (req: any, res) => {
     try {
+      console.log('Blacklist POST - req.user:', req.user);
+      console.log('Blacklist POST - req.session:', req.session);
+      console.log('Blacklist POST - req.body:', req.body);
+      
       const userId = req.user.claims.sub;
       const validatedData = insertBlacklistSchema.parse(req.body);
       

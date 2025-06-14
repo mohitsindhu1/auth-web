@@ -162,6 +162,9 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
+  console.log(`Auth check for ${req.method} ${req.path} - req.user:`, req.user);
+  console.log(`Auth check - session:`, req.session);
+  
   // Check if this is a logout request - skip authentication
   if (req.path === '/api/logout') {
     return next();
