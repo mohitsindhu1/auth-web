@@ -231,7 +231,7 @@ export default function AppManagement() {
     mutationFn: (userData: any) => 
       apiRequest(`/api/applications/${appId}/users`, {
         method: 'POST',
-        body: JSON.stringify(userData),
+        body: userData,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/users`] });
