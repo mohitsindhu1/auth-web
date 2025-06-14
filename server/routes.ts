@@ -2345,9 +2345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin routes for user management
   app.get('/api/admin/users', isAuthenticated, requirePermission(PERMISSIONS.MANAGE_USERS), async (req: any, res) => {
     try {
-      // For now, return mock data since we only have the owner user
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      const users = currentUser ? [currentUser] : [];
+      const users = await storage.getAllUsers();
       res.json(users);
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -2366,8 +2364,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Only the owner can modify other users" });
       }
 
-      // Update user permissions (for demonstration, we'll just return success)
-      res.json({ success: true, message: "User permissions updated" });
+      // Update user permissions
+      const updatedUser = await storage.updateUser(userId, { role, permissions, isActive });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json(updatedUser);
     } catch (error) {
       console.error("Error updating user:", error);
       res.status(500).json({ message: "Failed to update user" });
@@ -2383,8 +2387,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Cannot delete your own account" });
       }
 
-      // For demonstration, just return success
-      res.json({ success: true, message: "User deleted" });
+      // Delete the user
+      const deleted = await storage.deleteUser(userId);
+      
+      if (!deleted) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      res.json({ success: true, message: "User deleted successfully" });
     } catch (error) {
       console.error("Error deleting user:", error);
       res.status(500).json({ message: "Failed to delete user" });
