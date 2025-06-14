@@ -1288,6 +1288,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Register user with license key validation via API
+  app.post('/api/v1/register', validateApiKey, async (req: any, res) => {
+    try {
+      const application = req.application;
+      const { username, password, email, license_key, version, hwid } = req.body;
+      
+      if (!username || !password || !license_key) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Username, password, and license key are required" 
+        });
+      }
+
+      // Validate license key
+      const license = await storage.validateLicenseKey(license_key, application.id);
+      if (!license) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid or expired license key" 
+        });
+      }
+      
+      // Check if license has available slots
+      if (license.currentUsers >= license.maxUsers) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "License key has reached maximum user limit" 
+        });
+      }
+
+      // Check for existing username in this application
+      const existingUser = await storage.getAppUserByUsername(application.id, username);
+      if (existingUser) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Username already exists" 
+        });
+      }
+
+      // Check for existing email if provided
+      if (email) {
+        const existingEmail = await storage.getAppUserByEmail(application.id, email);
+        if (existingEmail) {
+          return res.status(400).json({ 
+            success: false, 
+            message: "Email already exists" 
+          });
+        }
+      }
+
+      // Create user with license key association
+      const userData = {
+        username,
+        password,
+        email: email || null,
+        licenseKey: license_key,
+        hwid: hwid || null
+      };
+
+      const user = await storage.createAppUserWithLicense(application.id, userData);
+
+      // Send registration webhook notification
+      await webhookService.logAndNotify(
+        application.userId,
+        application.id,
+        'user_registration',
+        user,
+        { 
+          success: true, 
+          ipAddress: req.ip || req.connection.remoteAddress,
+          userAgent: req.headers['user-agent'],
+          hwid,
+          metadata: {
+            registration_time: new Date().toISOString(),
+            license_key: license_key,
+            version: version
+          }
+        }
+      );
+
+      // Success response
+      res.json({ 
+        success: true, 
+        message: "Registration successful! You can now login with your credentials.",
+        user_id: user.id,
+        username: user.username,
+        email: user.email,
+        expires_at: user.expiresAt
+      });
+    } catch (error) {
+      console.error("Error during registration:", error);
+      res.status(500).json({ success: false, message: "Registration failed" });
+    }
+  });
+
   // Verify user session via API
   app.post('/api/v1/verify', validateApiKey, async (req: any, res) => {
     try {

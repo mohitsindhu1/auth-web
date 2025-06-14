@@ -177,9 +177,9 @@ public class AuthApiClient
         });
     }
 
-    public async Task<AuthResponse> RegisterAsync(string username, string password, string email, string version = null, string hwid = null)
+    public async Task<AuthResponse> RegisterAsync(string username, string password, string email, string licenseKey, string version = null, string hwid = null)
     {
-        var registerData = new { username, password, email, version, hwid };
+        var registerData = new { username, password, email, license_key = licenseKey, version, hwid };
         var json = JsonSerializer.Serialize(registerData);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -260,6 +260,7 @@ public partial class LoginForm : Form
     private TextBox txtUsername;
     private TextBox txtPassword;
     private TextBox txtEmail;
+    private TextBox txtLicenseKey;
     private Button btnLogin;
     private Button btnRegister;
     private Label lblStatus;
@@ -281,7 +282,7 @@ public partial class LoginForm : Form
     private void InitializeComponent()
     {
         this.Text = "Application Login";
-        this.Size = new System.Drawing.Size(400, 350);
+        this.Size = new System.Drawing.Size(400, 400);
         this.StartPosition = FormStartPosition.CenterScreen;
 
         var lblUsername = new Label { Text = "Username:", Location = new System.Drawing.Point(50, 50), Size = new System.Drawing.Size(80, 23) };
@@ -293,15 +294,18 @@ public partial class LoginForm : Form
         var lblEmail = new Label { Text = "Email:", Location = new System.Drawing.Point(50, 130), Size = new System.Drawing.Size(80, 23) };
         txtEmail = new TextBox { Location = new System.Drawing.Point(140, 130), Size = new System.Drawing.Size(200, 23) };
 
-        btnLogin = new Button { Text = "Login", Location = new System.Drawing.Point(140, 170), Size = new System.Drawing.Size(95, 30) };
+        var lblLicenseKey = new Label { Text = "License Key:", Location = new System.Drawing.Point(50, 170), Size = new System.Drawing.Size(80, 23) };
+        txtLicenseKey = new TextBox { Location = new System.Drawing.Point(140, 170), Size = new System.Drawing.Size(200, 23), PlaceholderText = "Required for registration" };
+
+        btnLogin = new Button { Text = "Login", Location = new System.Drawing.Point(140, 210), Size = new System.Drawing.Size(95, 30) };
         btnLogin.Click += async (s, e) => await LoginAsync();
 
-        btnRegister = new Button { Text = "Register", Location = new System.Drawing.Point(245, 170), Size = new System.Drawing.Size(95, 30) };
+        btnRegister = new Button { Text = "Register", Location = new System.Drawing.Point(245, 210), Size = new System.Drawing.Size(95, 30) };
         btnRegister.Click += async (s, e) => await RegisterAsync();
 
-        lblStatus = new Label { Location = new System.Drawing.Point(50, 220), Size = new System.Drawing.Size(300, 60), ForeColor = System.Drawing.Color.Red };
+        lblStatus = new Label { Location = new System.Drawing.Point(50, 260), Size = new System.Drawing.Size(300, 60), ForeColor = System.Drawing.Color.Red };
 
-        this.Controls.AddRange(new Control[] { lblUsername, txtUsername, lblPassword, txtPassword, lblEmail, txtEmail, btnLogin, btnRegister, lblStatus });
+        this.Controls.AddRange(new Control[] { lblUsername, txtUsername, lblPassword, txtPassword, lblEmail, txtEmail, lblLicenseKey, txtLicenseKey, btnLogin, btnRegister, lblStatus });
     }
 
     private async Task LoginAsync()
@@ -384,9 +388,10 @@ public partial class LoginForm : Form
             // Validate input fields
             if (string.IsNullOrWhiteSpace(txtUsername.Text) || 
                 string.IsNullOrWhiteSpace(txtPassword.Text) || 
-                string.IsNullOrWhiteSpace(txtEmail.Text))
+                string.IsNullOrWhiteSpace(txtEmail.Text) ||
+                string.IsNullOrWhiteSpace(txtLicenseKey.Text))
             {
-                MessageBox.Show("Please fill in all fields (Username, Password, Email)", "Validation Error", 
+                MessageBox.Show("Please fill in all required fields (Username, Password, Email, License Key)", "Validation Error", 
                               MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -401,6 +406,7 @@ public partial class LoginForm : Form
                 txtUsername.Text, 
                 txtPassword.Text, 
                 txtEmail.Text, 
+                txtLicenseKey.Text,
                 "${selectedApplication?.version || "1.0.0"}", 
                 hwid
             );
@@ -413,9 +419,10 @@ public partial class LoginForm : Form
                 MessageBox.Show(registerResult.Message + "\\n\\nYou can now login with your credentials.", 
                               "Registration Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-                // Clear password and email fields, keep username for login
+                // Clear password, email and license key fields, keep username for login
                 txtPassword.Clear();
                 txtEmail.Clear();
+                txtLicenseKey.Clear();
                 txtPassword.Focus();
             }
             else
@@ -763,13 +770,14 @@ class AuthApiClient:
         except Exception as e:
             return AuthResponse({'success': False, 'message': f'Connection error: {str(e)}'})
 
-    def register(self, username: str, password: str, email: str, version: str = None, hwid: str = None) -> AuthResponse:
-        """Register a new user account"""
+    def register(self, username: str, password: str, email: str, license_key: str, version: str = None, hwid: str = None) -> AuthResponse:
+        """Register a new user account with license key validation"""
         try:
             register_data = {
                 'username': username,
                 'password': password,
                 'email': email,
+                'license_key': license_key,
                 'version': version,
                 'hwid': hwid
             }
@@ -878,8 +886,8 @@ class LoginWindow:
         self.setup_ui()
 
     def setup_ui(self):
-        # Increase window height for email field and register button
-        self.root.geometry("400x350")
+        # Increase window height for license key field
+        self.root.geometry("400x400")
         
         # Username
         tk.Label(self.root, text="Username:", font=("Arial", 10)).place(x=50, y=50)
@@ -896,6 +904,11 @@ class LoginWindow:
         self.email_entry = tk.Entry(self.root, font=("Arial", 10), width=25)
         self.email_entry.place(x=140, y=130)
         
+        # License Key
+        tk.Label(self.root, text="License Key:", font=("Arial", 10)).place(x=50, y=170)
+        self.license_key_entry = tk.Entry(self.root, font=("Arial", 10), width=25)
+        self.license_key_entry.place(x=140, y=170)
+        
         # Login button
         self.login_btn = tk.Button(
             self.root, 
@@ -906,7 +919,7 @@ class LoginWindow:
             fg="white",
             width=12
         )
-        self.login_btn.place(x=140, y=170)
+        self.login_btn.place(x=140, y=210)
         
         # Register button
         self.register_btn = tk.Button(
@@ -918,7 +931,7 @@ class LoginWindow:
             fg="white",
             width=12
         )
-        self.register_btn.place(x=260, y=170)
+        self.register_btn.place(x=260, y=210)
         
         # Status label
         self.status_label = tk.Label(
@@ -928,7 +941,7 @@ class LoginWindow:
             fg="red",
             wraplength=300
         )
-        self.status_label.place(x=50, y=220)
+        self.status_label.place(x=50, y=260)
         
         # Bind Enter key to login
         self.root.bind('<Return>', lambda event: self.login())
@@ -999,15 +1012,16 @@ class LoginWindow:
             self.login_btn.config(state='normal')
 
     def register(self):
-        """Register a new user account"""
+        """Register a new user account with license key validation"""
         try:
             # Validate input fields
             username = self.username_entry.get().strip()
             password = self.password_entry.get().strip()
             email = self.email_entry.get().strip()
+            license_key = self.license_key_entry.get().strip()
             
-            if not username or not password or not email:
-                messagebox.showwarning("Validation Error", "Please fill in all fields (Username, Password, Email)")
+            if not username or not password or not email or not license_key:
+                messagebox.showwarning("Validation Error", "Please fill in all required fields (Username, Password, Email, License Key)")
                 return
                 
             self.register_btn.config(state='disabled')
@@ -1020,6 +1034,7 @@ class LoginWindow:
                 username, 
                 password, 
                 email, 
+                license_key,
                 "${selectedApplication?.version || "1.0.0"}", 
                 hwid
             )
@@ -1031,9 +1046,10 @@ class LoginWindow:
                     register_result.message + "\\n\\nYou can now login with your credentials."
                 )
                 
-                # Clear password and email fields, keep username for login
+                # Clear password, email and license key fields, keep username for login
                 self.password_entry.delete(0, tk.END)
                 self.email_entry.delete(0, tk.END)
+                self.license_key_entry.delete(0, tk.END)
                 self.password_entry.focus()
                 
             else:
