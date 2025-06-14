@@ -169,6 +169,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Logout route
   app.post('/api/logout', async (req: any, res) => {
     try {
+      console.log("POST /api/logout - Session before destroy:", req.session);
+      
       // Destroy the session
       req.session.destroy((err: any) => {
         if (err) {
@@ -176,8 +178,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(500).json({ message: "Failed to logout" });
         }
         
-        // Clear the session cookie
-        res.clearCookie('connect.sid');
+        console.log("Session destroyed successfully");
+        
+        // Clear all possible session cookies
+        res.clearCookie('connect.sid', { path: '/' });
+        res.clearCookie('connect.sid', { path: '/', domain: '.replit.app' });
+        res.clearCookie('connect.sid', { path: '/', domain: '.replit.dev' });
+        
+        // Set cache control headers to prevent caching
+        res.set({
+          'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+          'Expires': '0',
+          'Pragma': 'no-cache'
+        });
+        
         res.json({ message: "Logged out successfully" });
       });
     } catch (error) {

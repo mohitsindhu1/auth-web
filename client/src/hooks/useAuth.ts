@@ -27,27 +27,40 @@ export function useAuth() {
 
   const logout = async () => {
     try {
-      // Clear local storage and session storage
+      console.log("Starting logout process...");
+      
+      // Clear local storage and session storage first
       localStorage.clear();
       sessionStorage.clear();
+      console.log("Storage cleared");
       
       // Sign out from Firebase
       await signOutUser();
+      console.log("Firebase signout completed");
       
-      // Call backend logout to clear server session
-      await fetch('/api/logout', {
+      // Call backend logout to clear server session with proper headers
+      const response = await fetch('/api/logout', {
         method: 'POST',
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       
-      // Force a complete page reload to clear all cached data
-      window.location.href = "/";
+      if (response.ok) {
+        console.log("Backend logout successful");
+      } else {
+        console.warn("Backend logout failed:", response.status);
+      }
+      
+      // Force complete page reload with cache busting
+      window.location.replace("/");
     } catch (error) {
-      console.error("Error signing out:", error);
-      // Force logout by clearing everything and redirecting
+      console.error("Error during logout:", error);
+      // Force logout anyway
       localStorage.clear();
       sessionStorage.clear();
-      window.location.href = "/";
+      window.location.replace("/");
     }
   };
 
