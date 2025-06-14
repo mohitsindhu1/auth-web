@@ -336,7 +336,7 @@ export class DatabaseStorage implements IStorage {
 
   async createAppUserWithLicense(applicationId: number, insertUser: InsertAppUser): Promise<AppUser> {
     // Validate license key first
-    const licenseKey = await this.validateLicenseKey(insertUser.licenseKey, applicationId);
+    const licenseKey = await this.validateLicenseKey(insertUser.licenseKey!, applicationId);
     if (!licenseKey) {
       throw new Error("Invalid or expired license key");
     }
@@ -365,9 +365,30 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  // Backward compatibility method
+  // Create app user without license key (for admin creation)
   async createAppUser(applicationId: number, insertUser: InsertAppUser): Promise<AppUser> {
-    return this.createAppUserWithLicense(applicationId, insertUser);
+    const hashedPassword = await this.hashPassword(insertUser.password);
+    
+    // Parse expiresAt if provided
+    let userExpiresAt = null;
+    if (insertUser.expiresAt) {
+      userExpiresAt = new Date(insertUser.expiresAt);
+    }
+    
+    const [user] = await db
+      .insert(appUsers)
+      .values({
+        applicationId,
+        licenseKeyId: null, // No license key for admin creation
+        username: insertUser.username,
+        password: hashedPassword,
+        email: insertUser.email || null,
+        hwid: insertUser.hwid || null,
+        expiresAt: userExpiresAt,
+      })
+      .returning();
+    
+    return user;
   }
 
   async updateAppUser(id: number, updates: UpdateAppUser): Promise<AppUser | undefined> {
