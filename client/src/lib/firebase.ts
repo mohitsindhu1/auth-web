@@ -109,9 +109,20 @@ export const signOutUser = async () => {
   }
   
   try {
-    // Force clear Firebase auth state BEFORE signout
+    console.log("Starting Firebase signout");
+    
+    // Set logout flag immediately
     if (typeof window !== 'undefined') {
-      // Clear all Firebase storage FIRST
+      localStorage.setItem('user_logged_out', 'true');
+      sessionStorage.setItem('user_logged_out', 'true');
+    }
+    
+    // Sign out from Firebase
+    await signOut(auth);
+    console.log("Firebase signout completed");
+    
+    // Clear Firebase storage after signout
+    if (typeof window !== 'undefined') {
       const allKeys = Object.keys(localStorage);
       allKeys.forEach(key => {
         if (key.startsWith('firebase:') || 
@@ -119,16 +130,10 @@ export const signOutUser = async () => {
             key.includes('firebase') ||
             key.includes('Firebase') ||
             key.includes('Auth')) {
-          try {
-            localStorage.removeItem(key);
-            console.log('Cleared localStorage key:', key);
-          } catch (e) {
-            console.warn('Failed to clear Firebase storage key:', key);
-          }
+          localStorage.removeItem(key);
         }
       });
       
-      // Clear sessionStorage Firebase keys
       const sessionKeys = Object.keys(sessionStorage);
       sessionKeys.forEach(key => {
         if (key.startsWith('firebase:') || 
@@ -136,57 +141,18 @@ export const signOutUser = async () => {
             key.includes('firebase') ||
             key.includes('Firebase') ||
             key.includes('Auth')) {
-          try {
-            sessionStorage.removeItem(key);
-            console.log('Cleared sessionStorage key:', key);
-          } catch (e) {
-            console.warn('Failed to clear Firebase session key:', key);
-          }
+          sessionStorage.removeItem(key);
         }
       });
-
-      // Clear IndexedDB Firebase data
-      try {
-        if ('indexedDB' in window) {
-          const deleteDB = indexedDB.deleteDatabase('firebase-heartbeat-database');
-          deleteDB.onsuccess = () => console.log('Firebase IndexedDB cleared');
-        }
-      } catch (e) {
-        console.warn('Could not clear Firebase IndexedDB:', e);
-      }
-    }
-    
-    // Sign out from Firebase
-    await signOut(auth);
-    console.log("Firebase signout completed");
-    
-    // Additional cleanup after signout
-    if (typeof window !== 'undefined') {
-      // Clear any remaining auth tokens
-      const tokensToRemove = [
-        'firebase-auth-token',
-        'firebase-user',
-        'authTokens',
-        'firebaseUser'
-      ];
       
-      tokensToRemove.forEach(token => {
-        localStorage.removeItem(token);
-        sessionStorage.removeItem(token);
-      });
+      // Keep the logout flag
+      localStorage.setItem('user_logged_out', 'true');
+      sessionStorage.setItem('user_logged_out', 'true');
     }
     
-    console.log("Complete Firebase cleanup finished");
+    console.log("Firebase cleanup completed");
   } catch (error) {
     console.error("Error during Firebase signout:", error);
-    
-    // Emergency cleanup even if signout failed
-    if (typeof window !== 'undefined') {
-      localStorage.clear();
-      sessionStorage.clear();
-      console.log("Emergency storage clear completed");
-    }
-    
     throw error;
   }
 };

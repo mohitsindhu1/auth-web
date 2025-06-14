@@ -17,13 +17,13 @@ export function useAuth() {
       
       // Check if user was deliberately logged out
       const wasLoggedOut = 
-        localStorage.getItem('logout_in_progress') === 'true' ||
-        sessionStorage.getItem('logout_in_progress') === 'true' ||
+        localStorage.getItem('user_logged_out') === 'true' ||
+        sessionStorage.getItem('user_logged_out') === 'true' ||
         window.location.search.includes('logged_out=true') ||
-        window.location.search.includes('force_logout=true');
+        window.location.search.includes('logout_complete=true');
 
-      if (wasLoggedOut && user) {
-        console.log("Ignoring Firebase auth state - user was deliberately logged out");
+      if (wasLoggedOut) {
+        console.log("User logged out - clearing auth state");
         setFirebaseUser(null);
         setIsFirebaseLoading(false);
         queryClient.clear();
@@ -46,8 +46,8 @@ export function useAuth() {
   const { data: backendUser, isLoading: isBackendLoading, error } = useQuery({
     queryKey: ["/api/auth/user"],
     enabled: !!firebaseUser && !isLoggingOut && 
-             localStorage.getItem('logout_in_progress') !== 'true' &&
-             sessionStorage.getItem('logout_in_progress') !== 'true',
+             localStorage.getItem('user_logged_out') !== 'true' &&
+             sessionStorage.getItem('user_logged_out') !== 'true',
     retry: 1,
     staleTime: 0, // Always refetch to ensure fresh data
     gcTime: 0, // Don't cache
