@@ -32,13 +32,27 @@ export default function FirebaseLogin() {
     const urlParams = new URLSearchParams(window.location.search);
     const wasLoggedOut = urlParams.get('logged_out') === 'true' || 
                         urlParams.get('force_logout') === 'true' ||
-                        localStorage.getItem('logout_in_progress') === 'true';
+                        urlParams.get('force_reset') === 'true' ||
+                        urlParams.get('no_cache') ||
+                        urlParams.get('emergency_logout') === 'true' ||
+                        localStorage.getItem('logout_in_progress') === 'true' ||
+                        localStorage.getItem('force_logout_complete') === 'true';
 
     if (wasLoggedOut) {
-      console.log("User was logged out, preventing auto-authentication");
-      localStorage.removeItem('logout_in_progress');
+      console.log("LOGOUT DETECTED - Preventing all authentication attempts");
+      
+      // Clear all logout flags and authentication data
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
       setUser(null);
       setLoading(false);
+      setAuthenticating(false);
+      
+      console.log("Login page reset - user must manually authenticate");
       return;
     }
 
