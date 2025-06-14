@@ -13,8 +13,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Settings, ArrowLeft, Users, Activity, Eye, EyeOff, MoreHorizontal, Trash2, Pause, Play, Key, Shield } from "lucide-react";
+import { Copy, Settings, ArrowLeft, Users, Activity, Eye, EyeOff, MoreHorizontal, Trash2, Pause, Play, Key, Shield, Plus, UserPlus } from "lucide-react";
 import Header from "@/components/header";
 import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -52,6 +53,19 @@ interface AppUser {
   lastLoginAttempt?: string;
 }
 
+interface LicenseKey {
+  id: number;
+  licenseKey: string;
+  maxUsers: number;
+  currentUsers: number;
+  validityDays: number;
+  expiresAt: string;
+  isActive: boolean;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface AppStats {
   totalUsers: number;
   activeUsers: number;
@@ -68,8 +82,17 @@ export default function AppManagement() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isEditAppDialogOpen, setIsEditAppDialogOpen] = useState(false);
+  const [isCreateUserDialogOpen, setIsCreateUserDialogOpen] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [editAppData, setEditAppData] = useState<Partial<Application>>({});
+  const [createUserData, setCreateUserData] = useState({
+    username: "",
+    password: "",
+    email: "",
+    licenseKey: "",
+    expiresAt: "",
+    hwid: ""
+  });
 
   // Get application ID from URL
   const appId = window.location.pathname.split('/')[2];
@@ -91,6 +114,12 @@ export default function AppManagement() {
   // Fetch app stats
   const { data: appStats } = useQuery<AppStats>({
     queryKey: [`/api/applications/${appId}/stats`],
+    enabled: !!appId,
+  });
+
+  // Fetch license keys for user creation
+  const { data: licenseKeys = [] } = useQuery<LicenseKey[]>({
+    queryKey: [`/api/applications/${appId}/licenses`],
     enabled: !!appId,
   });
 
@@ -197,6 +226,37 @@ export default function AppManagement() {
     }
   });
 
+  // Create user mutation
+  const createUserMutation = useMutation({
+    mutationFn: (userData: any) => 
+      apiRequest(`/api/applications/${appId}/users`, {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/users`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/stats`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/licenses`] });
+      setIsCreateUserDialogOpen(false);
+      setCreateUserData({
+        username: "",
+        password: "",
+        email: "",
+        licenseKey: "",
+        expiresAt: "",
+        hwid: ""
+      });
+      toast({ title: "User created successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to create user", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    }
+  });
+
   useEffect(() => {
     if (application) {
       console.log('Application data received:', application);
@@ -230,6 +290,34 @@ export default function AppManagement() {
 
   const handleUpdateApp = () => {
     updateApplicationMutation.mutate(editAppData);
+  };
+
+  const handleCreateUser = () => {
+    if (!createUserData.username.trim()) {
+      toast({
+        title: "Error",
+        description: "Username is required",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!createUserData.password.trim()) {
+      toast({
+        title: "Error",
+        description: "Password is required",
+        variant: "destructive"
+      });
+      return;
+    }
+    if (!createUserData.licenseKey.trim()) {
+      toast({
+        title: "Error",
+        description: "License key is required",
+        variant: "destructive"
+      });
+      return;
+    }
+    createUserMutation.mutate(createUserData);
   };
 
   if (isLoadingApp) {
@@ -476,9 +564,119 @@ export default function AppManagement() {
           <TabsContent value="users" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  Application Users ({appUsers.length})
+                <CardTitle className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Application Users ({appUsers.length})
+                  </div>
+                  <Dialog open={isCreateUserDialogOpen} onOpenChange={setIsCreateUserDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button>
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Add User
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>Create New User</DialogTitle>
+                        <DialogDescription>
+                          Add a new user to your application using a license key
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div>
+                          <Label htmlFor="username">Username *</Label>
+                          <Input
+                            id="username"
+                            value={createUserData.username}
+                            onChange={(e) => setCreateUserData(prev => ({ ...prev, username: e.target.value }))}
+                            placeholder="Enter username"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="password">Password *</Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            value={createUserData.password}
+                            onChange={(e) => setCreateUserData(prev => ({ ...prev, password: e.target.value }))}
+                            placeholder="Enter password"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={createUserData.email}
+                            onChange={(e) => setCreateUserData(prev => ({ ...prev, email: e.target.value }))}
+                            placeholder="Enter email (optional)"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="license-key">License Key *</Label>
+                          {licenseKeys.length > 0 ? (
+                            <Select 
+                              value={createUserData.licenseKey} 
+                              onValueChange={(value) => setCreateUserData(prev => ({ ...prev, licenseKey: value }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a license key" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {licenseKeys
+                                  .filter(key => key.isActive && key.currentUsers < key.maxUsers && new Date(key.expiresAt) > new Date())
+                                  .map((key) => (
+                                    <SelectItem key={key.id} value={key.licenseKey}>
+                                      {key.licenseKey.substring(0, 16)}...
+                                      ({key.currentUsers}/{key.maxUsers} users)
+                                    </SelectItem>
+                                  ))
+                                }
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <div className="text-sm text-muted-foreground">
+                              No available license keys. 
+                              <Button 
+                                variant="link" 
+                                className="p-0 h-auto font-normal"
+                                onClick={() => setLocation(`/app/${appId}/licenses`)}
+                              >
+                                Create one first
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <Label htmlFor="expires-at">Expires At</Label>
+                          <Input
+                            id="expires-at"
+                            type="datetime-local"
+                            value={createUserData.expiresAt}
+                            onChange={(e) => setCreateUserData(prev => ({ ...prev, expiresAt: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="hwid">Hardware ID</Label>
+                          <Input
+                            id="hwid"
+                            value={createUserData.hwid}
+                            onChange={(e) => setCreateUserData(prev => ({ ...prev, hwid: e.target.value }))}
+                            placeholder="Enter HWID (optional)"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setIsCreateUserDialogOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={handleCreateUser} disabled={createUserMutation.isPending}>
+                            {createUserMutation.isPending ? "Creating..." : "Create User"}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </CardTitle>
               </CardHeader>
               <CardContent>
