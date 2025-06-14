@@ -190,8 +190,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update application with enhanced features
+  // Update application with enhanced features (PUT)
   app.put('/api/applications/:id', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const application = await storage.getApplication(applicationId);
+      
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      // Check if user owns this application
+      const userId = req.user.claims.sub;
+      if (application.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const validatedData = updateApplicationSchema.parse(req.body);
+      const updatedApplication = await storage.updateApplication(applicationId, validatedData);
+      
+      if (!updatedApplication) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      res.json(updatedApplication);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid input", errors: error.errors });
+      }
+      console.error("Error updating application:", error);
+      res.status(500).json({ message: "Failed to update application" });
+    }
+  });
+
+  // Update application with enhanced features (PATCH)
+  app.patch('/api/applications/:id', isAuthenticated, async (req: any, res) => {
     try {
       const applicationId = parseInt(req.params.id);
       const application = await storage.getApplication(applicationId);

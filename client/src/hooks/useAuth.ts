@@ -21,7 +21,8 @@ export function useAuth() {
   const { data: backendUser, isLoading: isBackendLoading, error } = useQuery({
     queryKey: ["/api/auth/user"],
     enabled: !!firebaseUser,
-    retry: false,
+    retry: 2,
+    staleTime: 5000,
   });
 
   const logout = async () => {
