@@ -15,6 +15,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Trash2, Shield, AlertTriangle, Ban, Globe, User, HardDrive, Mail } from "lucide-react";
 import Header from "@/components/header";
 import AdvancedParticleBackground from "@/components/AdvancedParticleBackground";
+interface Application {
+  id: number;
+  name: string;
+}
 
 interface BlacklistEntry {
   id: number;
@@ -29,10 +33,7 @@ interface BlacklistEntry {
   };
 }
 
-interface Application {
-  id: number;
-  name: string;
-}
+
 
 const BLACKLIST_TYPES = [
   { value: 'ip', label: 'IP Address', icon: Globe },
