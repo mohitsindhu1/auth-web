@@ -291,13 +291,16 @@ public class PhantomAuth
         return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
     }
 
-    public async Task<AuthResponse> RegisterAsync(string username, string email, string password, DateTime? expiresAt = null)
+    public async Task<AuthResponse> RegisterAsync(string username, string email, string password, 
+        string licenseKey = null, DateTime? expiresAt = null)
     {
         var data = new { 
             username, 
             email, 
-            password, 
-            expiresAt,
+            password,
+            license_key = licenseKey,
+            expires_at = expiresAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            version = _appVersion,
             hwid = GetHardwareId()
         };
         
@@ -308,6 +311,32 @@ public class PhantomAuth
         var responseJson = await response.Content.ReadAsStringAsync();
         
         return JsonConvert.DeserializeObject<AuthResponse>(responseJson);
+    }
+
+    public async Task<AuthResponse> RegisterWithErrorHandlingAsync(string username, string email, string password, string licenseKey = null)
+    {
+        var response = await RegisterAsync(username, email, password, licenseKey);
+        if (!response.Success) 
+        {
+            string errorTitle = "Registration Failed";
+            MessageBoxIcon icon = MessageBoxIcon.Error;
+
+            if (response.Message.Contains("already exists") || response.Message.Contains("taken"))
+            {
+                MessageBox.Show("Username or email already exists. Please choose different credentials.", 
+                    errorTitle, MessageBoxButtons.OK, icon);
+            }
+            else if (response.Message.Contains("license") || response.Message.Contains("key"))
+            {
+                MessageBox.Show("Invalid license key. Please check your license key and try again.", 
+                    errorTitle, MessageBoxButtons.OK, icon);
+            }
+            else
+            {
+                MessageBox.Show(response.Message, errorTitle, MessageBoxButtons.OK, icon);
+            }
+        }
+        return response;
     }
 
     public async Task<AuthResponse> VerifySessionAsync(int userId)
@@ -616,18 +645,60 @@ class PhantomAuth:
         else:
             messagebox.showerror("Login Failed", message)
 
+    def register(self, username, email, password, license_key=None, expires_at=None):
+        data = {
+            "username": username,
+            "email": email,
+            "password": password,
+            "version": self.app_version,
+            "hwid": self.get_hardware_id()
+        }
+        
+        if license_key:
+            data["license_key"] = license_key
+        if expires_at:
+            data["expires_at"] = expires_at
+
+        try:
+            response = self.session.post(f"{self.base_url}/register", json=data)
+            return response.json()
+        except Exception as e:
+            return {"success": False, "message": f"Connection error: {str(e)}"}
+
+    def handle_register_error(self, message):
+        if "already exists" in message.lower() or "taken" in message.lower():
+            messagebox.showerror("Registration Failed", 
+                "Username or email already exists. Please choose different credentials.")
+        elif "license" in message.lower() or "key" in message.lower():
+            messagebox.showerror("Registration Failed", 
+                "Invalid license key. Please check your license key and try again.")
+        else:
+            messagebox.showerror("Registration Failed", message)
+
+    def register_with_error_handling(self, username, email, password, license_key=None):
+        response = self.register(username, email, password, license_key)
+        if not response.get("success", False):
+            self.handle_register_error(response.get("message", "Unknown error"))
+        return response
+
     def login_with_error_handling(self, username, password):
         response = self.login(username, password)
         if not response.get("success", False):
             self.handle_login_error(response.get("message", "Unknown error"))
         return response
 
-# Usage Example:
+# Usage Examples:
 auth = PhantomAuth("your-api-key-here")
-response = auth.login_with_error_handling("username", "password")
 
-if response["success"]:
-    print(f"Welcome, {response['username']}!")
+# For Registration
+register_response = auth.register_with_error_handling("new_user", "user@email.com", "password123", "license-key-optional")
+if register_response["success"]:
+    print(f"Registration successful! User ID: {register_response['user_id']}")
+
+# For Login
+login_response = auth.login_with_error_handling("username", "password")
+if login_response["success"]:
+    print(f"Welcome, {login_response['username']}!")
     # Continue with application logic`}
                   </pre>
                   <Button
