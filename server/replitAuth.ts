@@ -170,7 +170,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 
   // Check for account ID header (from Firebase authentication)
   const accountId = req.headers['x-account-id'];
-  if (accountId) {
+  if (accountId && !req.user) {
     try {
       const user = await storage.getUser(accountId as string);
       if (user) {
@@ -180,6 +180,11 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
             email: user.email
           }
         };
+        // Also create a session for consistency
+        if (!req.session) {
+          req.session = {} as any;
+        }
+        (req.session as any).user = req.user;
         return next();
       }
     } catch (error) {
