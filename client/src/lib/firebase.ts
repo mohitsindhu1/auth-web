@@ -11,157 +11,73 @@ import {
 } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
-  authDomain: `${import.meta.env.VITE_FIREBASE_PROJECT_ID || "demo"}.firebaseapp.com`,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "demo-project",
-  storageBucket: `${import.meta.env.VITE_FIREBASE_PROJECT_ID || "demo"}.firebasestorage.app`,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: `${import.meta.env.VITE_FIREBASE_PROJECT_ID}.firebasestorage.app`,
   messagingSenderId: "123456789",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "demo-app-id",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Only initialize if we have proper config
-const hasValidConfig = firebaseConfig.apiKey && 
-                      firebaseConfig.projectId && 
-                      firebaseConfig.appId &&
-                      firebaseConfig.apiKey !== "" &&
-                      firebaseConfig.projectId !== "demo-project";
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
-let app: any = null;
-let auth: any = null;
+// Configure Google provider
+const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('email');
+googleProvider.addScope('profile');
+googleProvider.setCustomParameters({
+  prompt: 'select_account',
+  hd: '' // Force account picker for all domains
+});
 
-if (hasValidConfig) {
-  try {
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-  } catch (error) {
-    console.warn('Firebase initialization failed:', error);
-  }
-}
-
-let googleProvider: GoogleAuthProvider | null = null;
-
-if (hasValidConfig && auth) {
-  googleProvider = new GoogleAuthProvider();
-  // Configure Google provider to always show account selection
-  googleProvider.addScope('email');
-  googleProvider.addScope('profile');
-  googleProvider.setCustomParameters({
-    prompt: 'select_account',
-    hd: '' // Force account picker for all domains
-  });
-}
-
-// Firebase authentication functions
+// ✅ Google Login (Always ask for account)
 export const signInWithGoogle = async () => {
-  if (!auth || !googleProvider) {
-    throw new Error('Firebase not properly configured');
-  }
-  
-  // Always ensure fresh provider with account selection to prevent auto-login
-  const freshProvider = new GoogleAuthProvider();
-  freshProvider.addScope('email');
-  freshProvider.addScope('profile');
-  freshProvider.setCustomParameters({
-    prompt: 'select_account consent', // Force both account selection AND consent
-    hd: '', // Force account picker for all domains
-    include_granted_scopes: 'false' // Don't include previously granted scopes
+  const provider = new GoogleAuthProvider();
+
+  // Force Google to show account chooser
+  provider.setCustomParameters({
+    prompt: "select_account"
   });
-  
+
   try {
-    // Try popup first, fallback to redirect if popup is blocked
-    return await signInWithPopup(auth, freshProvider);
-  } catch (error: any) {
-    if (error.code === 'auth/popup-blocked') {
-      return signInWithRedirect(auth, freshProvider);
-    }
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+
+    console.log("✅ Signed in as:", user.email);
+    return result;
+  } catch (error) {
+    console.error("❌ Sign-in error:", error);
     throw error;
   }
 };
 
-export const signInWithGoogleRedirect = () => {
-  if (!auth || !googleProvider) {
-    throw new Error('Firebase not properly configured');
-  }
-  
-  // Create fresh provider for redirect with forced account selection
-  const freshProvider = new GoogleAuthProvider();
-  freshProvider.addScope('email');
-  freshProvider.addScope('profile');
-  freshProvider.setCustomParameters({
-    prompt: 'select_account consent', // Force both account selection AND consent
-    hd: '', // Force account picker for all domains
-    include_granted_scopes: 'false' // Don't include previously granted scopes
-  });
-  
-  return signInWithRedirect(auth, freshProvider);
-};
-
-export const handleRedirectResult = () => {
-  if (!auth) {
-    return Promise.resolve(null);
-  }
-  return getRedirectResult(auth);
-};
-
+// ✅ Logout Function (Properly logout user)
 export const signOutUser = async () => {
-  if (!auth) {
-    return Promise.resolve();
-  }
-  
   try {
-    console.log("Starting Firebase signout");
-    
-    // Set logout flag immediately
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('user_logged_out', 'true');
-      sessionStorage.setItem('user_logged_out', 'true');
-    }
-    
-    // Sign out from Firebase
     await signOut(auth);
-    console.log("Firebase signout completed");
-    
-    // Clear Firebase storage after signout
-    if (typeof window !== 'undefined') {
-      const allKeys = Object.keys(localStorage);
-      allKeys.forEach(key => {
-        if (key.startsWith('firebase:') || 
-            key.includes('authUser') || 
-            key.includes('firebase') ||
-            key.includes('Firebase') ||
-            key.includes('Auth')) {
-          localStorage.removeItem(key);
-        }
-      });
-      
-      const sessionKeys = Object.keys(sessionStorage);
-      sessionKeys.forEach(key => {
-        if (key.startsWith('firebase:') || 
-            key.includes('authUser') || 
-            key.includes('firebase') ||
-            key.includes('Firebase') ||
-            key.includes('Auth')) {
-          sessionStorage.removeItem(key);
-        }
-      });
-      
-      // Keep the logout flag
-      localStorage.setItem('user_logged_out', 'true');
-      sessionStorage.setItem('user_logged_out', 'true');
-    }
-    
-    console.log("Firebase cleanup completed");
+    console.log("✅ User logged out");
+
+    // Clear all stored session/local data
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // Optional: Clear cookies if needed
+    document.cookie.split(";").forEach((c) => {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+
+    console.log("✅ Storage cleared");
   } catch (error) {
-    console.error("Error during Firebase signout:", error);
+    console.error("❌ Logout error:", error);
     throw error;
   }
 };
 
 export const onAuthStateChange = (callback: (user: User | null) => void) => {
-  if (!auth) {
-    callback(null);
-    return () => {};
-  }
   return onAuthStateChanged(auth, callback);
 };
 

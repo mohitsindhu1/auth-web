@@ -1,90 +1,25 @@
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Form } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, LogIn, CheckCircle, Info, Users, Building, Globe } from "lucide-react";
 import { Link, useLocation } from "wouter";
-import { auth, signInWithGoogle, handleRedirectResult, onAuthStateChange } from "@/lib/firebase";
+import { signInWithGoogle, onAuthStateChange } from "@/lib/firebase";
 import { User } from "firebase/auth";
-
-const firebaseLoginSchema = z.object({});
 
 export default function FirebaseLogin() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [authenticating, setAuthenticating] = useState(false);
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  const form = useForm<z.infer<typeof firebaseLoginSchema>>({
-    resolver: zodResolver(firebaseLoginSchema),
-    defaultValues: {},
-  });
-
   useEffect(() => {
-    let authenticationInProgress = false;
-
-    // Check if user was deliberately logged out
-    const urlParams = new URLSearchParams(window.location.search);
-    const wasLoggedOut = urlParams.get('logged_out') === 'true' || 
-                        urlParams.get('logout_complete') === 'true' ||
-                        localStorage.getItem('user_logged_out') === 'true' ||
-                        sessionStorage.getItem('user_logged_out') === 'true';
-
-    if (wasLoggedOut) {
-      console.log("User logged out - authentication disabled");
-      
-      // Clear logout flags but keep authentication disabled
-      localStorage.removeItem('user_logged_out');
-      sessionStorage.removeItem('user_logged_out');
-      
-      // Clear URL parameters
-      window.history.replaceState({}, document.title, window.location.pathname);
-      
-      setUser(null);
-      setLoading(false);
-      setAuthenticating(false);
-      
-      // Don't set up any authentication listeners after logout
-      return;
-    }
-
-    // Handle redirect result only if not logged out
-    handleRedirectResult().then((result) => {
-      if (result && !authenticationInProgress && !wasLoggedOut) {
-        authenticationInProgress = true;
-        setUser(result.user);
-        authenticateWithBackend(result.user);
-      }
-    }).catch((error) => {
-      console.error("Redirect error:", error);
-      toast({
-        title: "Error",
-        description: "Authentication failed",
-        variant: "destructive"
-      });
-      setLoading(false);
-    });
-
-    // Only listen for auth state changes if user wasn't logged out
     const unsubscribe = onAuthStateChange((user: User | null) => {
-      // Skip all authentication if user deliberately logged out
-      if (wasLoggedOut || localStorage.getItem('user_logged_out') === 'true') {
-        console.log("Ignoring auth state change - user logged out");
-        return;
-      }
-
-      if (user && !loading && !authenticationInProgress && !authenticating) {
-        authenticationInProgress = true;
+      if (user) {
         setUser(user);
         authenticateWithBackend(user);
-      } else if (!user) {
+      } else {
         setUser(null);
-        authenticationInProgress = false;
       }
     });
 
@@ -92,11 +27,10 @@ export default function FirebaseLogin() {
   }, []);
 
   const authenticateWithBackend = async (firebaseUser: any) => {
-    if (authenticating) {
+    if (loading) {
       return; // Prevent duplicate authentication attempts
     }
     
-    setAuthenticating(true);
     setLoading(true);
     
     try {
