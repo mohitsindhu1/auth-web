@@ -21,20 +21,20 @@ async function validateApiKey(req: any, res: any, next: any) {
   const apiKey = req.headers['x-api-key'] || req.query.api_key;
   
   if (!apiKey) {
-    return res.status(401).json({ message: "API key required" });
+    return res.status(401).json({ success: false, message: "API key required" });
   }
 
   try {
     const application = await storage.getApplicationByApiKey(apiKey as string);
     if (!application || !application.isActive) {
-      return res.status(401).json({ message: "Invalid or inactive API key" });
+      return res.status(401).json({ success: false, message: "Invalid or inactive API key" });
     }
     
     req.application = application;
     next();
   } catch (error) {
     console.error("API key validation error:", error);
-    res.status(500).json({ message: "Internal server error" });
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 }
 
@@ -57,11 +57,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Firebase authentication route
   app.post('/api/auth/firebase-login', async (req: any, res) => {
-    // Prevent duplicate responses
-    if (res.headersSent) {
-      return;
-    }
-
     try {
       const { firebase_uid, email, display_name } = req.body;
 
@@ -96,7 +91,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('Session created successfully');
 
-      return res.json({
+      res.json({
         success: true,
         message: "Login successful! Redirecting to dashboard...",
         account_id: firebase_uid,
@@ -105,12 +100,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error) {
       console.error("Firebase login error:", error);
-      if (!res.headersSent) {
-        return res.status(500).json({ 
-          success: false, 
-          message: "Authentication failed: " + (error instanceof Error ? error.message : 'Unknown error')
-        });
-      }
+      res.status(500).json({ 
+        success: false, 
+        message: "Authentication failed: " + (error instanceof Error ? error.message : 'Unknown error')
+      });
     }
   });
 
@@ -259,28 +252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get single application
-  app.get('/api/applications/:id', isAuthenticated, async (req: any, res) => {
-    try {
-      const applicationId = parseInt(req.params.id);
-      const application = await storage.getApplication(applicationId);
-      
-      if (!application) {
-        return res.status(404).json({ message: "Application not found" });
-      }
 
-      // Check if user owns this application
-      const userId = req.user.claims.sub;
-      if (application.userId !== userId) {
-        return res.status(403).json({ message: "Access denied" });
-      }
-
-      res.json(application);
-    } catch (error) {
-      console.error("Error fetching application:", error);
-      res.status(500).json({ message: "Failed to fetch application" });
-    }
-  });
 
   // Get real-time application statistics
   app.get('/api/applications/:id/stats', isAuthenticated, async (req: any, res) => {
