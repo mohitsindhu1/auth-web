@@ -101,11 +101,53 @@ export const handleRedirectResult = () => {
   return getRedirectResult(auth);
 };
 
-export const signOutUser = () => {
+export const signOutUser = async () => {
   if (!auth) {
     return Promise.resolve();
   }
-  return signOut(auth);
+  
+  try {
+    // Sign out from Firebase
+    await signOut(auth);
+    
+    // Clear any Firebase-related storage
+    if (typeof window !== 'undefined') {
+      // Clear Firebase's internal storage
+      const firebaseKeys = Object.keys(localStorage).filter(key => 
+        key.startsWith('firebase:') || 
+        key.includes('authUser') || 
+        key.includes('firebase')
+      );
+      
+      firebaseKeys.forEach(key => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.warn('Failed to clear Firebase storage key:', key);
+        }
+      });
+      
+      // Clear sessionStorage Firebase keys too
+      const sessionFirebaseKeys = Object.keys(sessionStorage).filter(key => 
+        key.startsWith('firebase:') || 
+        key.includes('authUser') || 
+        key.includes('firebase')
+      );
+      
+      sessionFirebaseKeys.forEach(key => {
+        try {
+          sessionStorage.removeItem(key);
+        } catch (e) {
+          console.warn('Failed to clear Firebase session key:', key);
+        }
+      });
+    }
+    
+    console.log("Firebase signout and storage cleanup completed");
+  } catch (error) {
+    console.error("Error during Firebase signout:", error);
+    throw error;
+  }
 };
 
 export const onAuthStateChange = (callback: (user: User | null) => void) => {
