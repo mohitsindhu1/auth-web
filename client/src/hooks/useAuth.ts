@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { onAuthStateChange, signOutUser } from "@/lib/firebase";
 import { User } from "firebase/auth";
+import { executeCompleteLogout } from "@/utils/logoutHandler";
 
 export function useAuth() {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
@@ -53,73 +54,23 @@ export function useAuth() {
   });
 
   const logout = async () => {
-    if (isLoggingOut) return; // Prevent multiple logout attempts
+    if (isLoggingOut) return;
     
-    console.log("NUCLEAR LOGOUT - Destroying all authentication");
+    console.log("🚨 STARTING COMPLETE LOGOUT SEQUENCE");
     setIsLoggingOut(true);
     
-    // STEP 1: IMMEDIATE STATE DESTRUCTION
-    setFirebaseUser(null);
-    
-    // STEP 2: TOTAL STORAGE ANNIHILATION  
-    localStorage.clear();
-    sessionStorage.clear();
-    
-    // STEP 3: QUERY CACHE DESTRUCTION
-    queryClient.clear();
-    queryClient.invalidateQueries();
-    queryClient.removeQueries();
-    
-    // STEP 4: AGGRESSIVE COOKIE CLEARING
-    const allCookies = document.cookie.split(';');
-    allCookies.forEach(cookie => {
-      const eqPos = cookie.indexOf('=');
-      const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-      if (name) {
-        // Clear for multiple domains and paths
-        const clearCommands = [
-          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`,
-          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.replit.app;`,
-          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.replit.dev;`,
-          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.replit.co;`,
-          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; secure;`,
-          `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; httponly;`
-        ];
-        clearCommands.forEach(cmd => {
-          document.cookie = cmd;
-        });
-      }
-    });
-    
-    // STEP 5: FIREBASE DESTRUCTION
     try {
-      await signOutUser();
-      console.log("Firebase destroyed");
-    } catch (e) {
-      console.log("Firebase destruction failed, forcing storage clear");
+      await executeCompleteLogout();
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Emergency fallback
+      setFirebaseUser(null);
       localStorage.clear();
       sessionStorage.clear();
+      window.location.replace('/firebase-login?emergency_logout=true&t=' + Date.now());
+    } finally {
+      setIsLoggingOut(false);
     }
-    
-    // STEP 6: BACKEND SESSION DESTRUCTION
-    try {
-      await Promise.allSettled([
-        fetch('/api/logout', { method: 'POST', credentials: 'include' }),
-        fetch('/api/logout', { method: 'GET', credentials: 'include' })
-      ]);
-      console.log("Backend sessions destroyed");
-    } catch (e) {
-      console.log("Backend destruction failed, proceeding anyway");
-    }
-    
-    // STEP 7: FINAL CLEANUP AND FORCED REDIRECT
-    localStorage.clear();
-    sessionStorage.clear();
-    setIsLoggingOut(false);
-    
-    // NUCLEAR OPTION: Force immediate redirect to login with no cache
-    console.log("FORCING IMMEDIATE REDIRECT TO LOGIN");
-    window.location.replace('/firebase-login?force_logout=true&no_cache=' + Date.now());
   };
 
   const isAuthenticated = !!firebaseUser && !!backendUser && !error;
