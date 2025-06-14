@@ -604,6 +604,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         processedData.email = null;
       }
       
+      // Validate license key if provided
+      if (processedData.licenseKey) {
+        const license = await storage.validateLicenseKey(processedData.licenseKey, applicationId);
+        if (!license) {
+          return res.status(400).json({ message: "Invalid or expired license key" });
+        }
+        
+        // Check if license has available slots
+        if (license.currentUsers >= license.maxUsers) {
+          return res.status(400).json({ message: "License key has reached maximum user limit" });
+        }
+      }
+      
       // Check for existing username/email in this application
       const existingUser = await storage.getAppUserByUsername(applicationId, validatedData.username);
       if (existingUser) {
@@ -617,7 +630,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const user = await storage.createAppUser(applicationId, processedData);
+      // Use createAppUserWithLicense if license key is provided, otherwise createAppUser
+      const user = processedData.licenseKey 
+        ? await storage.createAppUserWithLicense(applicationId, processedData)
+        : await storage.createAppUser(applicationId, processedData);
+        
       res.status(201).json(user);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -805,6 +822,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Public registration endpoint (simple license key based registration)
+  app.post('/api/auth/register', async (req: any, res) => {
+    try {
+      const { username, password, email, licenseKey, hwid } = req.body;
+      
+      if (!username || !password || !licenseKey) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Username, password, and license key are required" 
+        });
+      }
+
+      // Find license key and get associated application
+      const license = await storage.getLicenseKeyByKey(licenseKey);
+      if (!license) {
+        return res.status(400).json({ success: false, message: "Invalid license key" });
+      }
+
+      // Validate license
+      const validLicense = await storage.validateLicenseKey(licenseKey, license.applicationId);
+      if (!validLicense) {
+        return res.status(400).json({ success: false, message: "License key is expired or inactive" });
+      }
+
+      // Check if license has available slots
+      if (license.currentUsers >= license.maxUsers) {
+        return res.status(400).json({ success: false, message: "License key has reached maximum user limit" });
+      }
+
+      // Check for existing user
+      const existingUser = await storage.getAppUserByUsername(license.applicationId, username);
+      if (existingUser) {
+        return res.status(400).json({ success: false, message: "Username already exists" });
+      }
+
+      if (email) {
+        const existingEmail = await storage.getAppUserByEmail(license.applicationId, email);
+        if (existingEmail) {
+          return res.status(400).json({ success: false, message: "Email already exists" });
+        }
+      }
+
+      // Create user with license
+      const userData = {
+        username,
+        password,
+        email: email || null,
+        licenseKey,
+        hwid: hwid || null,
+        expiresAt: license.expiresAt
+      };
+
+      const user = await storage.createAppUserWithLicense(license.applicationId, userData);
+      
+      res.status(201).json({ 
+        success: true, 
+        message: "User registered successfully",
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          expiresAt: user.expiresAt,
+          createdAt: user.createdAt
+        }
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ success: false, message: "Registration failed" });
+    }
+  });
+
   // External API routes (require API key)
   
   // Register user via API
@@ -812,6 +900,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const application = req.application;
       const validatedData = insertAppUserSchema.parse(req.body);
+      
+      // Validate license key
+      const license = await storage.validateLicenseKey(validatedData.licenseKey, application.id);
+      if (!license) {
+        return res.status(400).json({ success: false, message: "Invalid or expired license key" });
+      }
+      
+      // Check if license has available slots
+      if (license.currentUsers >= license.maxUsers) {
+        return res.status(400).json({ success: false, message: "License key has reached maximum user limit" });
+      }
       
       // Check for existing username/email in this application
       const existingUser = await storage.getAppUserByUsername(application.id, validatedData.username);
@@ -826,7 +925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const user = await storage.createAppUser(application.id, validatedData);
+      const user = await storage.createAppUserWithLicense(application.id, validatedData);
       
       // Send registration webhook notification
       await webhookService.logAndNotify(
