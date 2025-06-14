@@ -84,7 +84,6 @@ export default function FirebaseLogin() {
       });
     } finally {
       setLoading(false);
-      setAuthenticating(false);
     }
   };
 

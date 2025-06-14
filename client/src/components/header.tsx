@@ -5,6 +5,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { signOutUser } from "@/lib/firebase";
 
 export default function Header() {
   const { isAuthenticated, user } = useAuth();
@@ -23,23 +24,17 @@ export default function Header() {
     }
   };
 
-  const handleLogout = () => {
-    console.log("Logout button clicked");
-    
-    // Clear all storage immediately
-    localStorage.clear();
-    sessionStorage.clear();
-    
-    // Clear all cookies
-    document.cookie.split(";").forEach((c) => {
-      const eqPos = c.indexOf("=");
-      const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
-      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
-      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=.replit.app;`;
-    });
-    
-    // Force immediate redirect to home page
-    window.location.href = '/';
+  const handleLogout = async () => {
+    try {
+      console.log("Logout button clicked");
+      await signOutUser();
+      // Redirect to home page after logout
+      window.location.href = '/';
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Force redirect even if logout fails
+      window.location.href = '/';
+    }
   };
 
   if (isAuthenticated) {
