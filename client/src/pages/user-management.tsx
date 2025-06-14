@@ -235,14 +235,24 @@ export default function UserManagement() {
 
       {/* Users List */}
       <div className="grid gap-6">
+        {/* Debug information */}
+        <Card className="bg-yellow-50 border-yellow-200">
+          <CardContent className="pt-6">
+            <p className="text-sm">Debug: Users found: {users.length}, Loading: {isLoading ? 'Yes' : 'No'}, Error: {error ? 'Yes' : 'No'}</p>
+          </CardContent>
+        </Card>
+
         {isLoading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
+          <Card>
+            <CardContent className="pt-6 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p>Loading users...</p>
+            </CardContent>
+          </Card>
         ) : error ? (
           <Alert>
             <AlertDescription>
-              Failed to load users. Please try again later.
+              Failed to load users: {(error as any)?.message || 'Unknown error'}
             </AlertDescription>
           </Alert>
         ) : filteredUsers.length === 0 ? (
