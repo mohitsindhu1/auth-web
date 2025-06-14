@@ -894,74 +894,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // External API routes (require API key)
-  
-  // Register user via API
-  app.post('/api/v1/register', validateApiKey, async (req: any, res) => {
-    try {
-      const application = req.application;
-      const validatedData = insertAppUserSchema.parse(req.body);
-      
-      // License key is required for external API registration
-      if (!validatedData.licenseKey) {
-        return res.status(400).json({ success: false, message: "License key is required for API registration" });
-      }
-      
-      // Validate license key
-      const license = await storage.validateLicenseKey(validatedData.licenseKey!, application.id);
-      if (!license) {
-        return res.status(400).json({ success: false, message: "Invalid or expired license key" });
-      }
-      
-      // Check if license has available slots
-      if (license.currentUsers >= license.maxUsers) {
-        return res.status(400).json({ success: false, message: "License key has reached maximum user limit" });
-      }
-      
-      // Check for existing username/email in this application
-      const existingUser = await storage.getAppUserByUsername(application.id, validatedData.username);
-      if (existingUser) {
-        return res.status(400).json({ success: false, message: "Username already exists" });
-      }
-
-      if (validatedData.email) {
-        const existingEmail = await storage.getAppUserByEmail(application.id, validatedData.email);
-        if (existingEmail) {
-          return res.status(400).json({ success: false, message: "Email already exists" });
-        }
-      }
-
-      const user = await storage.createAppUserWithLicense(application.id, validatedData);
-      
-      // Send registration webhook notification
-      await webhookService.logAndNotify(
-        application.userId,
-        application.id,
-        'user_register',
-        user,
-        { 
-          success: true, 
-          ipAddress: req.ip || req.connection.remoteAddress,
-          userAgent: req.headers['user-agent'],
-          metadata: {
-            registration_time: new Date().toISOString(),
-            expires_at: user.expiresAt?.toISOString() || null
-          }
-        }
-      );
-      
-      res.status(201).json({ 
-        success: true, 
-        message: "User registered successfully",
-        user_id: user.id
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ success: false, message: "Invalid input", errors: error.errors });
-      }
-      console.error("Error registering user:", error);
-      res.status(500).json({ success: false, message: "Registration failed" });
-    }
-  });
 
   // Enhanced Login via API with version checking, HWID locking, blacklist checking, and webhook notifications
   app.post('/api/v1/login', validateApiKey, async (req: any, res) => {
@@ -1294,7 +1226,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const application = req.application;
       const { username, password, email, license_key, version, hwid } = req.body;
       
+      console.log('Register request body:', { username, password: password ? '[HIDDEN]' : undefined, email, license_key, version, hwid });
+      
       if (!username || !password || !license_key) {
+        console.log('Missing required fields:', { username: !!username, password: !!password, license_key: !!license_key });
         return res.status(400).json({ 
           success: false, 
           message: "Username, password, and license key are required" 
