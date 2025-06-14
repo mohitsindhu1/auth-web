@@ -44,11 +44,22 @@ export interface IStorage {
   deleteApplication(id: number): Promise<boolean>;
   getAllApplications(userId: string): Promise<Application[]>;
   
-  // App User methods
+  // License Key methods
+  createLicenseKey(applicationId: number, license: InsertLicenseKey): Promise<LicenseKey>;
+  getLicenseKey(id: number): Promise<LicenseKey | undefined>;
+  getLicenseKeyByKey(licenseKey: string): Promise<LicenseKey | undefined>;
+  getAllLicenseKeys(applicationId: number): Promise<LicenseKey[]>;
+  updateLicenseKey(id: number, updates: Partial<InsertLicenseKey>): Promise<LicenseKey | undefined>;
+  deleteLicenseKey(id: number): Promise<boolean>;
+  validateLicenseKey(licenseKey: string, applicationId: number): Promise<LicenseKey | null>;
+  incrementLicenseUsage(licenseKeyId: number): Promise<boolean>;
+  decrementLicenseUsage(licenseKeyId: number): Promise<boolean>;
+  
+  // App User methods (now with license key support)
   getAppUser(id: number): Promise<AppUser | undefined>;
   getAppUserByUsername(applicationId: number, username: string): Promise<AppUser | undefined>;
   getAppUserByEmail(applicationId: number, email: string): Promise<AppUser | undefined>;
-  createAppUser(applicationId: number, user: InsertAppUser): Promise<AppUser>;
+  createAppUserWithLicense(applicationId: number, user: InsertAppUser): Promise<AppUser>;
   updateAppUser(id: number, updates: UpdateAppUser): Promise<AppUser | undefined>;
   deleteAppUser(id: number): Promise<boolean>;
   pauseAppUser(id: number): Promise<boolean>;
@@ -183,7 +194,124 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(applications).where(eq(applications.userId, userId));
   }
 
-  // App User methods
+  // License Key methods
+  async createLicenseKey(applicationId: number, license: InsertLicenseKey): Promise<LicenseKey> {
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + license.validityDays);
+    
+    const [licenseKey] = await db
+      .insert(licenseKeys)
+      .values({
+        applicationId,
+        licenseKey: license.licenseKey,
+        maxUsers: license.maxUsers,
+        validityDays: license.validityDays,
+        description: license.description || null,
+        expiresAt,
+      })
+      .returning();
+    return licenseKey;
+  }
+
+  async getLicenseKey(id: number): Promise<LicenseKey | undefined> {
+    const [license] = await db.select().from(licenseKeys).where(eq(licenseKeys.id, id));
+    return license;
+  }
+
+  async getLicenseKeyByKey(licenseKey: string): Promise<LicenseKey | undefined> {
+    const [license] = await db.select().from(licenseKeys).where(eq(licenseKeys.licenseKey, licenseKey));
+    return license;
+  }
+
+  async getAllLicenseKeys(applicationId: number): Promise<LicenseKey[]> {
+    return await db.select().from(licenseKeys).where(eq(licenseKeys.applicationId, applicationId));
+  }
+
+  async updateLicenseKey(id: number, updates: Partial<InsertLicenseKey>): Promise<LicenseKey | undefined> {
+    const updateData: any = { ...updates, updatedAt: new Date() };
+    
+    // Recalculate expiry if validity days changed
+    if (updates.validityDays) {
+      const currentLicense = await this.getLicenseKey(id);
+      if (currentLicense) {
+        const createdAt = new Date(currentLicense.createdAt);
+        const newExpiresAt = new Date(createdAt);
+        newExpiresAt.setDate(newExpiresAt.getDate() + updates.validityDays);
+        updateData.expiresAt = newExpiresAt;
+      }
+    }
+    
+    const [license] = await db
+      .update(licenseKeys)
+      .set(updateData)
+      .where(eq(licenseKeys.id, id))
+      .returning();
+    return license;
+  }
+
+  async deleteLicenseKey(id: number): Promise<boolean> {
+    const result = await db.delete(licenseKeys).where(eq(licenseKeys.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async validateLicenseKey(licenseKey: string, applicationId: number): Promise<LicenseKey | null> {
+    const [license] = await db
+      .select()
+      .from(licenseKeys)
+      .where(
+        and(
+          eq(licenseKeys.licenseKey, licenseKey),
+          eq(licenseKeys.applicationId, applicationId),
+          eq(licenseKeys.isActive, true)
+        )
+      );
+    
+    if (!license) return null;
+    
+    // Check if license has expired
+    if (new Date() > new Date(license.expiresAt)) {
+      return null;
+    }
+    
+    // Check if license has reached max users
+    if (license.currentUsers >= license.maxUsers) {
+      return null;
+    }
+    
+    return license;
+  }
+
+  async incrementLicenseUsage(licenseKeyId: number): Promise<boolean> {
+    // Get current count and increment
+    const [license] = await db.select().from(licenseKeys).where(eq(licenseKeys.id, licenseKeyId));
+    if (!license) return false;
+    
+    const result = await db
+      .update(licenseKeys)
+      .set({ 
+        currentUsers: license.currentUsers + 1,
+        updatedAt: new Date()
+      })
+      .where(eq(licenseKeys.id, licenseKeyId));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async decrementLicenseUsage(licenseKeyId: number): Promise<boolean> {
+    // Get current count and decrement
+    const [license] = await db.select().from(licenseKeys).where(eq(licenseKeys.id, licenseKeyId));
+    if (!license) return false;
+    
+    const result = await db
+      .update(licenseKeys)
+      .set({ 
+        currentUsers: Math.max(0, license.currentUsers - 1),
+        updatedAt: new Date()
+      })
+      .where(eq(licenseKeys.id, licenseKeyId));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // App User methods (updated with license support)
   async getAppUser(id: number): Promise<AppUser | undefined> {
     const [user] = await db.select().from(appUsers).where(eq(appUsers.id, id));
     return user;
@@ -206,21 +334,40 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async createAppUser(applicationId: number, insertUser: InsertAppUser): Promise<AppUser> {
+  async createAppUserWithLicense(applicationId: number, insertUser: InsertAppUser): Promise<AppUser> {
+    // Validate license key first
+    const licenseKey = await this.validateLicenseKey(insertUser.licenseKey, applicationId);
+    if (!licenseKey) {
+      throw new Error("Invalid or expired license key");
+    }
+
     const hashedPassword = await this.hashPassword(insertUser.password);
-    const expiresAt = insertUser.expiresAt ? new Date(insertUser.expiresAt) : null;
+    
+    // Set user expiry based on license expiry
+    const userExpiresAt = new Date(licenseKey.expiresAt);
+    
     const [user] = await db
       .insert(appUsers)
       .values({
         applicationId,
+        licenseKeyId: licenseKey.id,
         username: insertUser.username,
         password: hashedPassword,
         email: insertUser.email || null,
         hwid: insertUser.hwid || null,
-        expiresAt,
+        expiresAt: userExpiresAt,
       })
       .returning();
+
+    // Increment license usage
+    await this.incrementLicenseUsage(licenseKey.id);
+    
     return user;
+  }
+
+  // Backward compatibility method
+  async createAppUser(applicationId: number, insertUser: InsertAppUser): Promise<AppUser> {
+    return this.createAppUserWithLicense(applicationId, insertUser);
   }
 
   async updateAppUser(id: number, updates: UpdateAppUser): Promise<AppUser | undefined> {

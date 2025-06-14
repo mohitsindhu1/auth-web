@@ -9,6 +9,7 @@ import {
   insertAppUserSchema, 
   updateApplicationSchema,
   updateAppUserSchema,
+  insertLicenseKeySchema,
   loginSchema,
   insertWebhookSchema,
   insertBlacklistSchema
@@ -636,7 +637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      const user = await storage.createAppUser(application.id, validatedData);
+      const user = await storage.createAppUserWithLicense(application.id, validatedData);
       
       // Send registration webhook notification
       await webhookService.logAndNotify(
