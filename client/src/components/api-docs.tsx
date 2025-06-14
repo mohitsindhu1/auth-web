@@ -1380,7 +1380,6 @@ int main() {
                   >
                     {copiedStates['cpp-full'] ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                   </Button>
-                  </Button>
                 </div>
               </TabsContent>
             </Tabs>
