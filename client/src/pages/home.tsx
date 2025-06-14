@@ -17,7 +17,7 @@ interface DashboardStats {
 }
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
   // Check for logout parameters and clear them
@@ -33,14 +33,72 @@ export default function Home() {
     }
   }, []);
   
-  // Fetch dashboard stats for quick overview
+  // Fetch dashboard stats for quick overview (only when authenticated)
   const { data: stats } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
+    enabled: isAuthenticated,
   });
 
   const handleLogout = () => {
     window.location.href = '/api/logout';
   };
+
+  // Show different content based on authentication status
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background relative">
+        <AdvancedParticleBackground />
+        
+        {/* Navigation for non-authenticated users */}
+        <nav className="phantom-nav fixed w-full top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between h-16">
+              <div className="flex items-center">
+                <Shield className="h-8 w-8 phantom-text mr-3" />
+                <span className="text-xl font-bold text-foreground">Phantom Auth</span>
+              </div>
+              <div className="flex items-center space-x-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={toggleTheme}
+                  className="text-foreground hover:text-primary"
+                >
+                  {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+                </Button>
+                <Link href="/firebase-login">
+                  <Button variant="default" size="sm">
+                    Sign In
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        {/* Hero section for non-authenticated users */}
+        <section className="relative z-10 pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center">
+              <Shield className="h-16 w-16 phantom-text mx-auto mb-6" />
+              <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
+                Welcome to Phantom Auth
+              </h1>
+              <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
+                Secure authentication system for your applications. Sign in to access your dashboard.
+              </p>
+              <Link href="/firebase-login">
+                <Button className="phantom-button px-8 py-4 text-lg">
+                  Sign In to Continue
+                  <ArrowRight className="h-5 w-5 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background relative">
