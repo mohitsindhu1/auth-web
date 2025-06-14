@@ -74,20 +74,21 @@ export default function AppManagement() {
   const appId = window.location.pathname.split('/')[2];
 
   // Fetch application data
-  const { data: application, isLoading: isLoadingApp } = useQuery({
-    queryKey: ['/api/applications', appId],
+  const { data: application, isLoading: isLoadingApp, error: applicationError } = useQuery<Application>({
+    queryKey: [`/api/applications/${appId}`],
     enabled: !!appId,
+    retry: 2,
   });
 
   // Fetch app users
-  const { data: appUsers = [], isLoading: isLoadingUsers } = useQuery({
-    queryKey: ['/api/applications', appId, 'users'],
+  const { data: appUsers = [], isLoading: isLoadingUsers } = useQuery<AppUser[]>({
+    queryKey: [`/api/applications/${appId}/users`],
     enabled: !!appId,
   });
 
   // Fetch app stats
-  const { data: appStats } = useQuery({
-    queryKey: ['/api/applications', appId, 'stats'],
+  const { data: appStats } = useQuery<AppStats>({
+    queryKey: [`/api/applications/${appId}/stats`],
     enabled: !!appId,
   });
 
@@ -100,6 +101,8 @@ export default function AppManagement() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/applications'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/stats`] });
       setIsEditAppDialogOpen(false);
       toast({ title: "Application updated successfully" });
     },

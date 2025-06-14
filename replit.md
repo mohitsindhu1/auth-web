@@ -133,6 +133,12 @@ The system uses a multi-tenant architecture with the following key tables:
 ```
 Changelog:
 - June 14, 2025. Initial setup
+- June 14, 2025. Fixed authentication session synchronization and data loading issues
+  * Enhanced Firebase authentication flow with proper backend session creation
+  * Fixed API query key formats to match endpoint structure correctly
+  * Added PATCH route support for application updates
+  * Resolved TypeScript typing issues for data display
+  * Fixed authentication middleware to handle account ID headers properly
 ```
 
 ## User Preferences
