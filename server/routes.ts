@@ -2156,9 +2156,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     } catch (error) {
       console.error("Error running webhook diagnostics:", error);
+      
+      let errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Handle specific JSON parsing errors
+      if (errorMessage.includes("Unexpected token") && errorMessage.includes("<!DOCTYPE")) {
+        errorMessage = "Webhook endpoint returned HTML page instead of JSON. This usually means the URL is incorrect or doesn't accept POST requests with JSON payloads.";
+      } else if (errorMessage.includes("Unexpected token")) {
+        errorMessage = "Webhook endpoint returned invalid JSON response. Please verify the endpoint accepts JSON and returns valid responses.";
+      }
+      
       res.status(500).json({ 
+        success: false,
         message: "Failed to run diagnostics",
-        error: error instanceof Error ? error.message : String(error)
+        error: errorMessage,
+        diagnostics: {
+          connectivity_tests: [{
+            test_name: "Initial Connection",
+            success: false,
+            error: errorMessage,
+            status_code: 0,
+            response_time_ms: 0
+          }]
+        },
+        summary: {
+          total_tests: 1,
+          successful_tests: 0,
+          failed_tests: 1,
+          overall_status: 'FAILED'
+        }
       });
     }
   });

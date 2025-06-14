@@ -66,7 +66,7 @@ export default function Webhooks() {
   // Create webhook mutation
   const createWebhookMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest("/api/webhooks", "POST", data);
+      return apiRequest("/api/webhooks", { method: "POST", body: data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/webhooks"] });
@@ -238,10 +238,32 @@ export default function Webhooks() {
       });
     },
     onError: (error: any) => {
+      let errorMessage = error.message || "Failed to run diagnostics";
+      
+      // Handle specific error types
+      if (errorMessage.includes("Unexpected token")) {
+        errorMessage = "Webhook endpoint returned HTML instead of JSON. Please verify the URL is correct and accepts POST requests.";
+      } else if (errorMessage.includes("<!DOCTYPE")) {
+        errorMessage = "The webhook URL appears to be a web page, not an API endpoint. Please check the URL.";
+      }
+      
       toast({
         title: "Diagnostics Failed",
-        description: error.message || "Failed to run diagnostics",
+        description: errorMessage,
         variant: "destructive",
+      });
+      
+      // Set a failure result for display
+      setDiagnosticsResult({
+        success: false,
+        message: "Diagnostics failed",
+        error: errorMessage,
+        summary: {
+          total_tests: 0,
+          successful_tests: 0,
+          failed_tests: 1,
+          overall_status: 'FAILED'
+        }
       });
     },
   });
