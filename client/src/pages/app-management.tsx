@@ -78,6 +78,7 @@ export default function AppManagement() {
     queryKey: [`/api/applications/${appId}`],
     enabled: !!appId,
     retry: 2,
+    staleTime: 0,
   });
 
   // Fetch app users
@@ -122,7 +123,8 @@ export default function AppManagement() {
         method: 'DELETE',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/applications', appId, 'users'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/users`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/stats`] });
       toast({ title: "User deleted successfully" });
     },
     onError: (error: any) => {
@@ -141,7 +143,8 @@ export default function AppManagement() {
         method: 'PATCH',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/applications', appId, 'users'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/users`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/stats`] });
       toast({ title: "User paused successfully" });
     },
     onError: (error: any) => {
@@ -160,7 +163,8 @@ export default function AppManagement() {
         method: 'PATCH',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/applications', appId, 'users'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/users`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/stats`] });
       toast({ title: "User unpaused successfully" });
     },
     onError: (error: any) => {
@@ -179,7 +183,8 @@ export default function AppManagement() {
         method: 'PATCH',
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/applications', appId, 'users'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/users`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/stats`] });
       toast({ title: "HWID reset successfully" });
     },
     onError: (error: any) => {
@@ -193,9 +198,22 @@ export default function AppManagement() {
 
   useEffect(() => {
     if (application) {
+      console.log('Application data received:', application);
       setEditAppData(application);
     }
   }, [application]);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('App Management Debug:', {
+      appId,
+      application,
+      isLoadingApp,
+      applicationError,
+      appUsers,
+      appStats
+    });
+  }, [appId, application, isLoadingApp, applicationError, appUsers, appStats]);
 
   const copyToClipboard = async (text: string) => {
     try {
