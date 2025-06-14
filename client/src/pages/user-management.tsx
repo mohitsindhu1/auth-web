@@ -64,15 +64,25 @@ export default function UserManagement() {
   });
 
   // Check if user has permission to manage users
-  const canManageUsers = user?.userPermissions?.role === 'owner' || 
-                        user?.userPermissions?.permissions?.includes('manage_users');
+  const canManageUsers = (user as any)?.userPermissions?.role === 'owner' || 
+                        (user as any)?.userPermissions?.permissions?.includes('manage_users');
 
   // Fetch all users
-  const { data: users = [], isLoading, error } = useQuery({
+  const { data: usersData, isLoading, error } = useQuery({
     queryKey: ['/api/admin/users'],
     enabled: canManageUsers,
     retry: false
   });
+
+  // Ensure users is always an array
+  const users = Array.isArray(usersData) ? usersData : [];
+  
+  // Debug logging
+  console.log('usersData:', usersData);
+  console.log('users array:', users);
+  console.log('isLoading:', isLoading);
+  console.log('error:', error);
+  console.log('canManageUsers:', canManageUsers);
 
   // Update user mutation
   const updateUserMutation = useMutation({
@@ -147,7 +157,7 @@ export default function UserManagement() {
   };
 
   const handleDeleteUser = (userId: string) => {
-    if (userId === user?.id) {
+    if (userId === (user as any)?.id) {
       toast({
         title: "Cannot Delete",
         description: "You cannot delete your own account.",
@@ -201,7 +211,7 @@ export default function UserManagement() {
               Manage user roles, permissions, and access control
             </p>
           </div>
-          {user?.userPermissions?.role === 'owner' && (
+          {(user as any)?.userPermissions?.role === 'owner' && (
             <Badge variant="secondary" className="flex items-center gap-2">
               <Crown className="h-4 w-4" />
               Site Owner
