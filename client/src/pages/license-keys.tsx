@@ -56,7 +56,10 @@ export default function LicenseKeys() {
   // Create license key mutation
   const createLicenseMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest(`/api/applications/${applicationId}/licenses`, "POST", data);
+      return apiRequest(`/api/applications/${applicationId}/licenses`, {
+        method: "POST",
+        body: data
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/applications/${applicationId}/licenses`] });
@@ -79,7 +82,10 @@ export default function LicenseKeys() {
   // Generate license key mutation
   const generateLicenseMutation = useMutation({
     mutationFn: async (data: { maxUsers: number; validityDays: number; description?: string }) => {
-      return apiRequest(`/api/applications/${applicationId}/licenses/generate`, "POST", data);
+      return apiRequest(`/api/applications/${applicationId}/licenses/generate`, {
+        method: "POST",
+        body: data
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/applications/${applicationId}/licenses`] });
@@ -102,7 +108,9 @@ export default function LicenseKeys() {
   // Delete license key mutation
   const deleteLicenseMutation = useMutation({
     mutationFn: async (licenseId: number) => {
-      return apiRequest(`/api/applications/${applicationId}/licenses/${licenseId}`, "DELETE");
+      return apiRequest(`/api/applications/${applicationId}/licenses/${licenseId}`, {
+        method: "DELETE"
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/applications/${applicationId}/licenses`] });
