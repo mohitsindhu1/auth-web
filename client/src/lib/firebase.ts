@@ -45,6 +45,10 @@ export const signInWithGoogle = async () => {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
+    // Clear logout flag on successful login
+    localStorage.removeItem('user_logged_out');
+    sessionStorage.removeItem('user_logged_out');
+
     console.log("✅ Signed in as:", user.email);
     return result;
   } catch (error) {
@@ -56,23 +60,42 @@ export const signInWithGoogle = async () => {
 // ✅ Logout Function (Properly logout user)
 export const signOutUser = async () => {
   try {
-    await signOut(auth);
-    console.log("✅ User logged out");
+    // Set logout flag first to prevent auto-login
+    localStorage.setItem('user_logged_out', 'true');
+    sessionStorage.setItem('user_logged_out', 'true');
 
-    // Clear all stored session/local data
+    // Call backend logout to clear server session
+    await fetch('/api/logout', {
+      method: 'POST',
+      credentials: 'include'
+    });
+
+    // Then sign out from Firebase
+    await signOut(auth);
+    console.log("✅ Firebase signout completed");
+
+    // Clear all stored session/local data except logout flag
+    const logoutFlag = localStorage.getItem('user_logged_out');
     localStorage.clear();
     sessionStorage.clear();
+    
+    // Restore logout flag
+    localStorage.setItem('user_logged_out', 'true');
+    sessionStorage.setItem('user_logged_out', 'true');
 
-    // Optional: Clear cookies if needed
+    // Clear all cookies
     document.cookie.split(";").forEach((c) => {
       document.cookie = c
         .replace(/^ +/, "")
         .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
 
-    console.log("✅ Storage cleared");
+    console.log("✅ Complete logout finished");
   } catch (error) {
     console.error("❌ Logout error:", error);
+    // Even if logout fails, set logout flag and clear local data
+    localStorage.setItem('user_logged_out', 'true');
+    sessionStorage.setItem('user_logged_out', 'true');
     throw error;
   }
 };

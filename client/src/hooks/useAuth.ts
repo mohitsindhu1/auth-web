@@ -11,6 +11,17 @@ export function useAuth() {
   useEffect(() => {
     const unsubscribe = onAuthStateChange((user: User | null) => {
       console.log("Firebase auth state changed:", user ? "logged in" : "logged out");
+      
+      // Check if user manually logged out
+      const isLoggedOut = localStorage.getItem('user_logged_out') === 'true';
+      
+      if (isLoggedOut && user) {
+        console.log("User manually logged out - ignoring Firebase auth");
+        setFirebaseUser(null);
+        setIsFirebaseLoading(false);
+        return;
+      }
+
       setFirebaseUser(user);
       setIsFirebaseLoading(false);
       
@@ -22,16 +33,19 @@ export function useAuth() {
     return () => unsubscribe();
   }, [queryClient]);
 
-  // Fetch user data from our backend when Firebase user exists
+  // Check if user is logged out
+  const isLoggedOut = localStorage.getItem('user_logged_out') === 'true';
+
+  // Fetch user data from our backend when Firebase user exists and not logged out
   const { data: backendUser, isLoading: isBackendLoading, error } = useQuery({
     queryKey: ["/api/auth/user"],
-    enabled: !!firebaseUser,
+    enabled: !!firebaseUser && !isLoggedOut,
     retry: 1,
     staleTime: 0,
     gcTime: 0,
   });
 
-  const isAuthenticated = !!firebaseUser && !!backendUser && !error;
+  const isAuthenticated = !!firebaseUser && !!backendUser && !error && !isLoggedOut;
   const isLoading = isFirebaseLoading || (firebaseUser && isBackendLoading);
 
   return {
