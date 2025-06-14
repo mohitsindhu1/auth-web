@@ -199,7 +199,7 @@ export const insertAppUserSchema = createInsertSchema(appUsers).pick({
   email: z.union([z.string().email(), z.literal(""), z.null(), z.undefined()]).optional().transform(val => val === "" || val === undefined ? null : val),
   expiresAt: z.string().optional().nullable(),
   hwid: z.string().optional().nullable(),
-  licenseKey: z.string().min(1), // Required license key for registration
+  licenseKey: z.string().optional(), // Optional license key - required for external API, optional for admin creation
 });
 
 export const updateApplicationSchema = createInsertSchema(applications).pick({

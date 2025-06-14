@@ -605,7 +605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Validate license key if provided
-      if (processedData.licenseKey) {
+      if (processedData.licenseKey && processedData.licenseKey.trim()) {
         const license = await storage.validateLicenseKey(processedData.licenseKey, applicationId);
         if (!license) {
           return res.status(400).json({ message: "Invalid or expired license key" });
@@ -631,7 +631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Use createAppUserWithLicense if license key is provided, otherwise createAppUser
-      const user = processedData.licenseKey 
+      const user = (processedData.licenseKey && processedData.licenseKey.trim())
         ? await storage.createAppUserWithLicense(applicationId, processedData)
         : await storage.createAppUser(applicationId, processedData);
         
@@ -871,7 +871,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email: email || null,
         licenseKey,
         hwid: hwid || null,
-        expiresAt: license.expiresAt
+        expiresAt: license.expiresAt.toISOString()
       };
 
       const user = await storage.createAppUserWithLicense(license.applicationId, userData);
@@ -900,6 +900,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const application = req.application;
       const validatedData = insertAppUserSchema.parse(req.body);
+      
+      // License key is required for external API registration
+      if (!validatedData.licenseKey) {
+        return res.status(400).json({ success: false, message: "License key is required for API registration" });
+      }
       
       // Validate license key
       const license = await storage.validateLicenseKey(validatedData.licenseKey, application.id);

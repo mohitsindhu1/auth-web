@@ -309,15 +309,14 @@ export default function AppManagement() {
       });
       return;
     }
-    if (!createUserData.licenseKey.trim()) {
-      toast({
-        title: "Error",
-        description: "License key is required",
-        variant: "destructive"
-      });
-      return;
+    
+    // Remove licenseKey from data for admin creation - it's optional
+    const userData: any = { ...createUserData };
+    if (!userData.licenseKey || !userData.licenseKey.trim()) {
+      userData.licenseKey = undefined;
     }
-    createUserMutation.mutate(createUserData);
+    
+    createUserMutation.mutate(userData);
   };
 
   if (isLoadingApp) {
@@ -614,16 +613,20 @@ export default function AppManagement() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="license-key">License Key *</Label>
+                          <Label htmlFor="license-key">License Key (Optional)</Label>
+                          <p className="text-xs text-muted-foreground mb-2">
+                            Leave empty for direct admin creation or select a license key to assign
+                          </p>
                           {licenseKeys.length > 0 ? (
                             <Select 
                               value={createUserData.licenseKey} 
                               onValueChange={(value) => setCreateUserData(prev => ({ ...prev, licenseKey: value }))}
                             >
                               <SelectTrigger>
-                                <SelectValue placeholder="Select a license key" />
+                                <SelectValue placeholder="Select a license key (optional)" />
                               </SelectTrigger>
                               <SelectContent>
+                                <SelectItem value="">No license key</SelectItem>
                                 {licenseKeys
                                   .filter(key => key.isActive && key.currentUsers < key.maxUsers && new Date(key.expiresAt) > new Date())
                                   .map((key) => (
@@ -636,16 +639,11 @@ export default function AppManagement() {
                               </SelectContent>
                             </Select>
                           ) : (
-                            <div className="text-sm text-muted-foreground">
-                              No available license keys. 
-                              <Button 
-                                variant="link" 
-                                className="p-0 h-auto font-normal"
-                                onClick={() => setLocation(`/app/${appId}/licenses`)}
-                              >
-                                Create one first
-                              </Button>
-                            </div>
+                            <Input
+                              value={createUserData.licenseKey}
+                              onChange={(e) => setCreateUserData(prev => ({ ...prev, licenseKey: e.target.value }))}
+                              placeholder="Enter license key (optional)"
+                            />
                           )}
                         </div>
                         <div>
