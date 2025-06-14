@@ -162,15 +162,38 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  // Check for Firebase session
+  // Check for Firebase session first
   if (req.session && (req.session as any).user && (req.session as any).user.claims) {
     req.user = (req.session as any).user;
     return next();
   }
 
-  // If not in Replit environment, allow access (for deployment compatibility)
+  // Check for account ID header (from Firebase authentication)
+  const accountId = req.headers['x-account-id'];
+  if (accountId) {
+    try {
+      const user = await storage.getUser(accountId as string);
+      if (user) {
+        req.user = {
+          claims: {
+            sub: user.id,
+            email: user.email
+          }
+        };
+        return next();
+      }
+    } catch (error) {
+      console.error('Error verifying account ID:', error);
+    }
+  }
+
+  // If not in Replit environment, check for valid session
   if (!isReplitEnvironment) {
-    return next();
+    // Allow access if there's a user session or account ID
+    if (req.session && ((req.session as any).user || accountId)) {
+      return next();
+    }
+    return res.status(401).json({ message: "Unauthorized" });
   }
 
   // Fallback to passport authentication

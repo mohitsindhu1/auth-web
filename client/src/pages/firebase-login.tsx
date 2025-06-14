@@ -76,6 +76,7 @@ export default function FirebaseLogin() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           firebase_token: token,
           firebase_uid: firebaseUser.uid,

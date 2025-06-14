@@ -42,12 +42,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
+  // Debug route for testing authentication
+  app.get('/api/debug/auth', async (req: any, res) => {
+    try {
+      console.log('Debug auth - Headers:', req.headers);
+      console.log('Debug auth - Session:', req.session);
+      console.log('Debug auth - User:', req.user);
+      
+      const accountId = req.headers['x-account-id'];
+      if (accountId) {
+        const user = await storage.getUser(accountId as string);
+        console.log('Debug auth - Found user by account ID:', user);
+        return res.json({
+          status: 'authenticated',
+          method: 'account-id-header',
+          accountId,
+          user
+        });
+      }
+      
+      if (req.session && (req.session as any).user) {
+        return res.json({
+          status: 'authenticated',
+          method: 'session',
+          user: (req.session as any).user
+        });
+      }
+      
+      res.json({
+        status: 'not-authenticated',
+        session: req.session,
+        headers: req.headers
+      });
+    } catch (error) {
+      console.error('Debug auth error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Auth routes
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
+      console.log('Auth check - req.user:', req.user);
+      console.log('Auth check - session:', req.session);
+      
       const userId = req.user.claims.sub;
+      console.log('Fetching user for ID:', userId);
+      
       const user = await storage.getUser(userId);
+      console.log('Found user:', user);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
       const permissions = await getUserPermissions(userId);
+      console.log('User permissions:', permissions);
+      
       res.json({ ...user, userPermissions: permissions });
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -81,7 +132,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.upsertUser(userData);
       console.log('User upserted:', user);
 
-      // Create session without passport
+      // Create session
       (req.session as any).user = {
         claims: {
           sub: firebase_uid,
@@ -89,7 +140,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
 
-      console.log('Session created successfully');
+      // Save session explicitly
+      await new Promise((resolve, reject) => {
+        req.session.save((err: any) => {
+          if (err) reject(err);
+          else resolve(true);
+        });
+      });
+
+      console.log('Session created and saved successfully');
 
       res.json({
         success: true,
