@@ -121,7 +121,7 @@ export default function Blacklist() {
       type: formData.type,
       value: formData.value,
       reason: formData.reason || "",
-      applicationId: formData.applicationId ? parseInt(formData.applicationId) : undefined,
+      applicationId: formData.applicationId && formData.applicationId !== "global" ? parseInt(formData.applicationId) : undefined,
     };
 
     createBlacklistMutation.mutate(data);
@@ -175,14 +175,14 @@ export default function Blacklist() {
                   <div>
                     <Label htmlFor="application">Application (Optional)</Label>
                     <Select 
-                      value={formData.applicationId} 
+                      value={formData.applicationId || ""} 
                       onValueChange={(value) => setFormData(prev => ({ ...prev, applicationId: value }))}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select application or leave empty for global" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Global (All Applications)</SelectItem>
+                        <SelectItem value="global">Global (All Applications)</SelectItem>
                         {applications.map((app) => (
                           <SelectItem key={app.id} value={app.id.toString()}>
                             {app.name}

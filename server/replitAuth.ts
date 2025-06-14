@@ -175,6 +175,7 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     // Verify the session is still valid and not destroyed
     if (req.session.id && (!req.session.cookie.expires || req.session.cookie.expires > new Date())) {
       req.user = (req.session as any).user;
+      console.log("Auth successful from session");
       return next();
     } else {
       // Session expired, clear it

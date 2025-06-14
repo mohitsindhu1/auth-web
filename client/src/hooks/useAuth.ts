@@ -36,16 +36,18 @@ export function useAuth() {
   // Check if user is logged out
   const isLoggedOut = localStorage.getItem('user_logged_out') === 'true';
 
-  // Fetch user data from our backend when Firebase user exists and not logged out
+  // Fetch user data from our backend - try even if Firebase user doesn't exist
+  // because backend session might still be valid
   const { data: backendUser, isLoading: isBackendLoading, error } = useQuery({
     queryKey: ["/api/auth/user"],
-    enabled: !!firebaseUser && !isLoggedOut,
+    enabled: !isLoggedOut, // Only check if not manually logged out
     retry: 1,
     staleTime: 0,
     gcTime: 0,
   });
 
-  const isAuthenticated = !!firebaseUser && !!backendUser && !error && !isLoggedOut;
+  // User is authenticated if either Firebase user exists OR backend user exists
+  const isAuthenticated = (!!firebaseUser || !!backendUser) && !error && !isLoggedOut;
   const isLoading = isFirebaseLoading || (firebaseUser && isBackendLoading);
 
   return {
