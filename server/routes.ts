@@ -1591,8 +1591,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         let testPayload;
         if (isDiscordWebhook) {
-          // Use Discord-compatible format for validation
+          // Use Discord-compatible format for validation with content field
           testPayload = {
+            content: "PhantomAuth Webhook Validation Complete",
             embeds: [{
               title: "✅ PhantomAuth Webhook Validation",
               description: "This webhook endpoint has been successfully validated and registered with PhantomAuth.",
@@ -1607,10 +1608,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   name: "Server",
                   value: "Vietnam/India Optimized",
                   inline: true
+                },
+                {
+                  name: "Connection Time",
+                  value: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+                  inline: false
                 }
               ],
               footer: {
-                text: "PhantomAuth - Webhook Validation"
+                text: "PhantomAuth - Webhook Validation System"
               },
               timestamp: new Date().toISOString()
             }]
@@ -2067,11 +2073,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           let testPayload;
           if (isDiscordWebhook) {
-            // Discord webhook format
+            // Discord webhook format with content field to avoid empty message error
             testPayload = {
+              content: `PhantomAuth Connectivity Test - ${config.name}`,
               embeds: [{
                 title: "🔧 PhantomAuth Connectivity Test",
-                description: `Testing webhook connectivity from ${serverInfo.region || 'Vietnam'} server`,
+                description: `Testing webhook connectivity from ${serverInfo.region || 'Vietnam'} server to India`,
                 color: 0x00ff00,
                 fields: [
                   {
@@ -2085,13 +2092,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     inline: true
                   },
                   {
+                    name: "Response Time Target",
+                    value: "< 2 seconds optimal",
+                    inline: true
+                  },
+                  {
                     name: "Test Time",
-                    value: new Date().toISOString(),
+                    value: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
                     inline: false
                   }
                 ],
                 footer: {
-                  text: "PhantomAuth Webhook Diagnostics"
+                  text: "PhantomAuth Webhook Diagnostics - India Vietnam Connectivity"
                 },
                 timestamp: new Date().toISOString()
               }]
