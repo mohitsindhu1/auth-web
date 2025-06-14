@@ -162,10 +162,22 @@ export async function setupAuth(app: Express) {
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {
-  // Check for Firebase session first
-  if (req.session && (req.session as any).user && (req.session as any).user.claims) {
-    req.user = (req.session as any).user;
+  // Check if this is a logout request - skip authentication
+  if (req.path === '/api/logout') {
     return next();
+  }
+
+  // Check for Firebase session first - but ensure it's valid
+  if (req.session && (req.session as any).user && (req.session as any).user.claims) {
+    // Verify the session is still valid and not destroyed
+    if (req.session.id && (!req.session.cookie.expires || req.session.cookie.expires > new Date())) {
+      req.user = (req.session as any).user;
+      return next();
+    } else {
+      // Session expired, clear it
+      console.log("Session expired, clearing...");
+      delete (req.session as any).user;
+    }
   }
 
   // Check for account ID header (from Firebase authentication)
@@ -180,11 +192,13 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
             email: user.email
           }
         };
-        // Also create a session for consistency
+        // Also create a session for consistency only if session is not being destroyed
         if (!req.session) {
           req.session = {} as any;
         }
-        (req.session as any).user = req.user;
+        if (!(req.session as any).destroying) {
+          (req.session as any).user = req.user;
+        }
         return next();
       }
     } catch (error) {

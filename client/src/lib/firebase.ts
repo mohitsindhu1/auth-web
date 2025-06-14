@@ -57,13 +57,14 @@ export const signInWithGoogle = async () => {
     throw new Error('Firebase not properly configured');
   }
   
-  // Always ensure fresh provider with account selection
+  // Always ensure fresh provider with account selection to prevent auto-login
   const freshProvider = new GoogleAuthProvider();
   freshProvider.addScope('email');
   freshProvider.addScope('profile');
   freshProvider.setCustomParameters({
-    prompt: 'select_account',
-    hd: '' // Force account picker for all domains
+    prompt: 'select_account consent', // Force both account selection AND consent
+    hd: '', // Force account picker for all domains
+    include_granted_scopes: 'false' // Don't include previously granted scopes
   });
   
   try {
@@ -82,13 +83,14 @@ export const signInWithGoogleRedirect = () => {
     throw new Error('Firebase not properly configured');
   }
   
-  // Create fresh provider for redirect as well
+  // Create fresh provider for redirect with forced account selection
   const freshProvider = new GoogleAuthProvider();
   freshProvider.addScope('email');
   freshProvider.addScope('profile');
   freshProvider.setCustomParameters({
-    prompt: 'select_account',
-    hd: '' // Force account picker for all domains
+    prompt: 'select_account consent', // Force both account selection AND consent
+    hd: '', // Force account picker for all domains
+    include_granted_scopes: 'false' // Don't include previously granted scopes
   });
   
   return signInWithRedirect(auth, freshProvider);

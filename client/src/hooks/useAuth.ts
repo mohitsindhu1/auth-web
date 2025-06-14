@@ -37,61 +37,86 @@ export function useAuth() {
   const logout = async () => {
     if (isLoggingOut) return; // Prevent multiple logout attempts
     
+    console.log("🚪 Starting complete logout process...");
+    setIsLoggingOut(true);
+    
     try {
-      console.log("Starting logout process...");
-      setIsLoggingOut(true);
+      // Step 1: Immediately set Firebase user to null to trigger UI changes
+      setFirebaseUser(null);
+      console.log("✅ Local Firebase user state cleared");
       
-      // Clear React Query cache first
+      // Step 2: Clear all client-side caches and storage
       queryClient.clear();
-      console.log("Query cache cleared");
-      
-      // Clear local storage and session storage
+      queryClient.invalidateQueries();
       localStorage.clear();
       sessionStorage.clear();
-      console.log("Storage cleared");
+      console.log("✅ All client storage cleared");
       
-      // Call backend logout to clear server session
+      // Step 3: Clear cookies manually
+      document.cookie.split(";").forEach((c) => {
+        const eqPos = c.indexOf("=");
+        const name = eqPos > -1 ? c.substr(0, eqPos) : c;
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.replit.app";
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=.replit.dev";
+      });
+      console.log("✅ Cookies cleared");
+      
+      // Step 4: Sign out from Firebase (with aggressive cleanup)
       try {
-        const response = await fetch('/api/logout', {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          console.log("Backend logout successful");
-        } else {
-          console.warn("Backend logout failed:", response.status);
-        }
-      } catch (backendError) {
-        console.warn("Backend logout request failed:", backendError);
+        await signOutUser();
+        console.log("✅ Firebase signout completed");
+      } catch (firebaseError) {
+        console.warn("⚠️ Firebase signout error:", firebaseError);
       }
       
-      // Sign out from Firebase
-      await signOutUser();
-      console.log("Firebase signout completed");
+      // Step 5: Call backend logout (both POST and GET for safety)
+      const logoutRequests = [
+        fetch('/api/logout', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' }
+        }),
+        fetch('/api/logout', {
+          method: 'GET',
+          credentials: 'include'
+        })
+      ];
       
-      // Reset local state
+      try {
+        const responses = await Promise.allSettled(logoutRequests);
+        console.log("✅ Backend logout requests completed:", responses);
+      } catch (backendError) {
+        console.warn("⚠️ Backend logout failed:", backendError);
+      }
+      
+      // Step 6: Final cleanup and redirect
+      setIsLoggingOut(false);
+      
+      // Force a hard refresh to completely reset the application state
+      console.log("🔄 Forcing complete page reload...");
+      const timestamp = Date.now();
+      window.location.href = `/?logged_out=true&t=${timestamp}`;
+      
+    } catch (error) {
+      console.error("❌ Critical logout error:", error);
+      
+      // Emergency logout - force everything
       setFirebaseUser(null);
       setIsLoggingOut(false);
-      
-      // Force complete page reload with cache busting and timestamp
-      const timestamp = Date.now();
-      window.location.replace(`/?t=${timestamp}`);
-    } catch (error) {
-      console.error("Error during logout:", error);
-      setIsLoggingOut(false);
-      
-      // Force logout anyway
       queryClient.clear();
       localStorage.clear();
       sessionStorage.clear();
-      setFirebaseUser(null);
+      
+      // Clear all cookies
+      document.cookie.split(";").forEach((c) => {
+        const eqPos = c.indexOf("=");
+        const name = eqPos > -1 ? c.substr(0, eqPos) : c;
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      });
       
       const timestamp = Date.now();
-      window.location.replace(`/?t=${timestamp}`);
+      window.location.href = `/?force_logout=true&t=${timestamp}`;
     }
   };
 

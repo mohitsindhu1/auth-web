@@ -166,39 +166,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Logout route
-  app.post('/api/logout', async (req: any, res) => {
+  // Logout function to handle both GET and POST requests
+  const handleLogout = async (req: any, res: any) => {
     try {
-      console.log("POST /api/logout - Session before destroy:", req.session);
+      console.log(`${req.method} /api/logout - Session before destroy:`, req.session);
       
-      // Destroy the session
-      req.session.destroy((err: any) => {
-        if (err) {
-          console.error('Error destroying session:', err);
-          return res.status(500).json({ message: "Failed to logout" });
-        }
-        
-        console.log("Session destroyed successfully");
-        
-        // Clear all possible session cookies
-        res.clearCookie('connect.sid', { path: '/' });
-        res.clearCookie('connect.sid', { path: '/', domain: '.replit.app' });
-        res.clearCookie('connect.sid', { path: '/', domain: '.replit.dev' });
-        
-        // Set cache control headers to prevent caching
-        res.set({
-          'Cache-Control': 'no-store, no-cache, must-revalidate, private',
-          'Expires': '0',
-          'Pragma': 'no-cache'
+      // Force clear session data immediately
+      if (req.session) {
+        req.session.user = null;
+        req.session.destroy((err: any) => {
+          if (err) {
+            console.error('Error destroying session:', err);
+          } else {
+            console.log("Session destroyed successfully");
+          }
         });
-        
-        res.json({ message: "Logged out successfully" });
+      }
+      
+      // Clear all possible session cookies with multiple domain variations
+      const cookieOptions = [
+        { path: '/' },
+        { path: '/', domain: '.replit.app' },
+        { path: '/', domain: '.replit.dev' },
+        { path: '/', domain: '.replit.co' },
+        { path: '/', secure: false, httpOnly: true },
+        { path: '/', secure: true, httpOnly: true }
+      ];
+      
+      cookieOptions.forEach(options => {
+        res.clearCookie('connect.sid', options);
+        res.clearCookie('session', options);
+        res.clearCookie('.AuthSession', options);
+      });
+      
+      // Set comprehensive cache control headers
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, private, max-age=0',
+        'Expires': 'Thu, 01 Jan 1970 00:00:00 GMT',
+        'Pragma': 'no-cache',
+        'Clear-Site-Data': '"cache", "cookies", "storage", "executionContexts"'
+      });
+      
+      // For GET requests, redirect to home page
+      if (req.method === 'GET') {
+        console.log("GET logout - Redirecting to home");
+        return res.redirect('/?logged_out=true');
+      }
+      
+      // For POST requests, return JSON
+      res.json({ 
+        success: true,
+        message: "Logged out successfully",
+        timestamp: new Date().toISOString()
       });
     } catch (error) {
       console.error("Error in logout:", error);
-      res.status(500).json({ message: "Failed to logout" });
+      if (req.method === 'GET') {
+        return res.redirect('/?logout_error=true');
+      }
+      res.status(500).json({ success: false, message: "Failed to logout" });
     }
-  });
+  };
+
+  // Logout routes - support both GET and POST
+  app.post('/api/logout', handleLogout);
+  app.get('/api/logout', handleLogout);
 
   // Dashboard stats with real-time information
   app.get('/api/dashboard/stats', isAuthenticated, async (req: any, res) => {
