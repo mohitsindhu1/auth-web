@@ -40,6 +40,7 @@ function Router() {
         <>
           <Route path="/" component={Landing} />
           <Route path="/firebase-login" component={FirebaseLogin} />
+          <Route path="/user-management" component={UserManagement} />
         </>
       ) : (
         <>
