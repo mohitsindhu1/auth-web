@@ -273,7 +273,7 @@ export default function UserManagement() {
                             : userItem.email
                           }
                         </h3>
-                        {userItem.id === user?.id && (
+                        {userItem.id === (user as any)?.id && (
                           <Badge variant="outline">You</Badge>
                         )}
                         {userItem.role === 'owner' && (
@@ -302,7 +302,7 @@ export default function UserManagement() {
                           variant="outline" 
                           size="sm"
                           onClick={() => handleEditUser(userItem)}
-                          disabled={userItem.role === 'owner' && user?.userPermissions?.role !== 'owner'}
+                          disabled={userItem.role === 'owner' && (user as any)?.userPermissions?.role !== 'owner'}
                         >
                           <Edit className="h-4 w-4 mr-2" />
                           Edit
@@ -380,7 +380,7 @@ export default function UserManagement() {
                       </DialogContent>
                     </Dialog>
                     
-                    {userItem.id !== user?.id && userItem.role !== 'owner' && (
+                    {userItem.id !== (user as any)?.id && userItem.role !== 'owner' && (
                       <Button
                         variant="destructive"
                         size="sm"
