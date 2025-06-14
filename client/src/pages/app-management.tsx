@@ -128,7 +128,7 @@ export default function AppManagement() {
     mutationFn: (data: Partial<Application>) => 
       apiRequest(`/api/applications/${appId}`, {
         method: 'PATCH',
-        body: JSON.stringify(data),
+        body: data,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/applications'] });
@@ -170,7 +170,7 @@ export default function AppManagement() {
   const pauseUserMutation = useMutation({
     mutationFn: (userId: number) => 
       apiRequest(`/api/applications/${appId}/users/${userId}/pause`, {
-        method: 'PATCH',
+        method: 'POST',
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/users`] });
@@ -190,7 +190,7 @@ export default function AppManagement() {
   const unpauseUserMutation = useMutation({
     mutationFn: (userId: number) => 
       apiRequest(`/api/applications/${appId}/users/${userId}/unpause`, {
-        method: 'PATCH',
+        method: 'POST',
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/applications/${appId}/users`] });
