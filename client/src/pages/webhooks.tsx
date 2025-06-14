@@ -89,7 +89,7 @@ export default function Webhooks() {
   // Update webhook mutation
   const updateWebhookMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<typeof formData> }) => {
-      return apiRequest(`/api/webhooks/${id}`, "PUT", data);
+      return apiRequest(`/api/webhooks/${id}`, { method: "PUT", body: data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/webhooks"] });
@@ -112,7 +112,7 @@ export default function Webhooks() {
   // Delete webhook mutation
   const deleteWebhookMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/webhooks/${id}`, "DELETE");
+      return apiRequest(`/api/webhooks/${id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/webhooks"] });
@@ -208,7 +208,7 @@ export default function Webhooks() {
   // Test webhook mutation
   const testWebhookMutation = useMutation({
     mutationFn: async (event: string = 'user_login') => {
-      return apiRequest("/api/test-webhook", "POST", { event });
+      return apiRequest("/api/test-webhook", { method: "POST", body: { event } });
     },
     onSuccess: (data: any) => {
       toast({
@@ -228,7 +228,7 @@ export default function Webhooks() {
   // Webhook diagnostics mutation for Vietnam server testing
   const diagnosticsMutation = useMutation({
     mutationFn: async ({ webhook_url, test_type }: { webhook_url: string; test_type: string }) => {
-      return apiRequest("/api/webhook-diagnostics", "POST", { webhook_url, test_type });
+      return apiRequest("/api/webhook-diagnostics", { method: "POST", body: { webhook_url, test_type } });
     },
     onSuccess: (data: any) => {
       setDiagnosticsResult(data);
