@@ -281,7 +281,7 @@ public partial class LoginForm : Form
     private void InitializeComponent()
     {
         this.Text = "Application Login";
-        this.Size = new System.Drawing.Size(400, 300);
+        this.Size = new System.Drawing.Size(400, 350);
         this.StartPosition = FormStartPosition.CenterScreen;
 
         var lblUsername = new Label { Text = "Username:", Location = new System.Drawing.Point(50, 50), Size = new System.Drawing.Size(80, 23) };
@@ -290,12 +290,18 @@ public partial class LoginForm : Form
         var lblPassword = new Label { Text = "Password:", Location = new System.Drawing.Point(50, 90), Size = new System.Drawing.Size(80, 23) };
         txtPassword = new TextBox { Location = new System.Drawing.Point(140, 90), Size = new System.Drawing.Size(200, 23), UseSystemPasswordChar = true };
 
-        btnLogin = new Button { Text = "Login", Location = new System.Drawing.Point(140, 130), Size = new System.Drawing.Size(100, 30) };
+        var lblEmail = new Label { Text = "Email:", Location = new System.Drawing.Point(50, 130), Size = new System.Drawing.Size(80, 23) };
+        txtEmail = new TextBox { Location = new System.Drawing.Point(140, 130), Size = new System.Drawing.Size(200, 23) };
+
+        btnLogin = new Button { Text = "Login", Location = new System.Drawing.Point(140, 170), Size = new System.Drawing.Size(95, 30) };
         btnLogin.Click += async (s, e) => await LoginAsync();
 
-        lblStatus = new Label { Location = new System.Drawing.Point(50, 180), Size = new System.Drawing.Size(300, 60), ForeColor = System.Drawing.Color.Red };
+        btnRegister = new Button { Text = "Register", Location = new System.Drawing.Point(245, 170), Size = new System.Drawing.Size(95, 30) };
+        btnRegister.Click += async (s, e) => await RegisterAsync();
 
-        this.Controls.AddRange(new Control[] { lblUsername, txtUsername, lblPassword, txtPassword, btnLogin, lblStatus });
+        lblStatus = new Label { Location = new System.Drawing.Point(50, 220), Size = new System.Drawing.Size(300, 60), ForeColor = System.Drawing.Color.Red };
+
+        this.Controls.AddRange(new Control[] { lblUsername, txtUsername, lblPassword, txtPassword, lblEmail, txtEmail, btnLogin, btnRegister, lblStatus });
     }
 
     private async Task LoginAsync()
@@ -368,6 +374,68 @@ public partial class LoginForm : Form
         finally
         {
             btnLogin.Enabled = true;
+        }
+    }
+
+    private async Task RegisterAsync()
+    {
+        try
+        {
+            // Validate input fields
+            if (string.IsNullOrWhiteSpace(txtUsername.Text) || 
+                string.IsNullOrWhiteSpace(txtPassword.Text) || 
+                string.IsNullOrWhiteSpace(txtEmail.Text))
+            {
+                MessageBox.Show("Please fill in all fields (Username, Password, Email)", "Validation Error", 
+                              MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            btnRegister.Enabled = false;
+            lblStatus.Text = "Creating account...";
+            lblStatus.ForeColor = System.Drawing.Color.Blue;
+
+            string hwid = GetHardwareId();
+
+            var registerResult = await _authClient.RegisterAsync(
+                txtUsername.Text, 
+                txtPassword.Text, 
+                txtEmail.Text, 
+                "${selectedApplication?.version || "1.0.0"}", 
+                hwid
+            );
+
+            if (registerResult.Success)
+            {
+                lblStatus.Text = registerResult.Message;
+                lblStatus.ForeColor = System.Drawing.Color.Green;
+
+                MessageBox.Show(registerResult.Message + "\\n\\nYou can now login with your credentials.", 
+                              "Registration Successful", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                // Clear password and email fields, keep username for login
+                txtPassword.Clear();
+                txtEmail.Clear();
+                txtPassword.Focus();
+            }
+            else
+            {
+                lblStatus.Text = registerResult.Message;
+                lblStatus.ForeColor = System.Drawing.Color.Red;
+
+                MessageBox.Show(registerResult.Message, "Registration Failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            lblStatus.Text = $"Registration error: {ex.Message}";
+            lblStatus.ForeColor = System.Drawing.Color.Red;
+            MessageBox.Show($"Network error during registration: {ex.Message}", "Error", 
+                          MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            btnRegister.Enabled = true;
         }
     }
 
@@ -695,6 +763,27 @@ class AuthApiClient:
         except Exception as e:
             return AuthResponse({'success': False, 'message': f'Connection error: {str(e)}'})
 
+    def register(self, username: str, password: str, email: str, version: str = None, hwid: str = None) -> AuthResponse:
+        """Register a new user account"""
+        try:
+            register_data = {
+                'username': username,
+                'password': password,
+                'email': email,
+                'version': version,
+                'hwid': hwid
+            }
+            
+            response = self.session.post(
+                f"{self.base_url}/api/v1/register",
+                json=register_data,
+                timeout=30
+            )
+            
+            return AuthResponse(response.json())
+        except Exception as e:
+            return AuthResponse({'success': False, 'message': f'Registration error: {str(e)}'})
+
     def verify(self, user_id: int) -> AuthResponse:
         """Verify user session"""
         try:
@@ -789,6 +878,9 @@ class LoginWindow:
         self.setup_ui()
 
     def setup_ui(self):
+        # Increase window height for email field and register button
+        self.root.geometry("400x350")
+        
         # Username
         tk.Label(self.root, text="Username:", font=("Arial", 10)).place(x=50, y=50)
         self.username_entry = tk.Entry(self.root, font=("Arial", 10), width=25)
@@ -799,6 +891,11 @@ class LoginWindow:
         self.password_entry = tk.Entry(self.root, font=("Arial", 10), width=25, show="*")
         self.password_entry.place(x=140, y=90)
         
+        # Email
+        tk.Label(self.root, text="Email:", font=("Arial", 10)).place(x=50, y=130)
+        self.email_entry = tk.Entry(self.root, font=("Arial", 10), width=25)
+        self.email_entry.place(x=140, y=130)
+        
         # Login button
         self.login_btn = tk.Button(
             self.root, 
@@ -807,9 +904,21 @@ class LoginWindow:
             command=self.login,
             bg="#007acc",
             fg="white",
-            width=15
+            width=12
         )
-        self.login_btn.place(x=140, y=130)
+        self.login_btn.place(x=140, y=170)
+        
+        # Register button
+        self.register_btn = tk.Button(
+            self.root, 
+            text="Register", 
+            font=("Arial", 10), 
+            command=self.register,
+            bg="#28a745",
+            fg="white",
+            width=12
+        )
+        self.register_btn.place(x=260, y=170)
         
         # Status label
         self.status_label = tk.Label(
@@ -819,7 +928,7 @@ class LoginWindow:
             fg="red",
             wraplength=300
         )
-        self.status_label.place(x=50, y=180)
+        self.status_label.place(x=50, y=220)
         
         # Bind Enter key to login
         self.root.bind('<Return>', lambda event: self.login())
@@ -888,6 +997,56 @@ class LoginWindow:
             
         finally:
             self.login_btn.config(state='normal')
+
+    def register(self):
+        """Register a new user account"""
+        try:
+            # Validate input fields
+            username = self.username_entry.get().strip()
+            password = self.password_entry.get().strip()
+            email = self.email_entry.get().strip()
+            
+            if not username or not password or not email:
+                messagebox.showwarning("Validation Error", "Please fill in all fields (Username, Password, Email)")
+                return
+                
+            self.register_btn.config(state='disabled')
+            self.status_label.config(text="Creating account...", fg="blue")
+            self.root.update()
+            
+            hwid = self.get_hardware_id()
+            
+            register_result = self.auth_client.register(
+                username, 
+                password, 
+                email, 
+                "${selectedApplication?.version || "1.0.0"}", 
+                hwid
+            )
+            
+            if register_result.success:
+                self.status_label.config(text=register_result.message, fg="green")
+                messagebox.showinfo(
+                    "Registration Successful", 
+                    register_result.message + "\\n\\nYou can now login with your credentials."
+                )
+                
+                # Clear password and email fields, keep username for login
+                self.password_entry.delete(0, tk.END)
+                self.email_entry.delete(0, tk.END)
+                self.password_entry.focus()
+                
+            else:
+                self.status_label.config(text=register_result.message, fg="red")
+                messagebox.showerror("Registration Failed", register_result.message)
+                
+        except Exception as e:
+            error_msg = f"Registration error: {str(e)}"
+            self.status_label.config(text=error_msg, fg="red")
+            messagebox.showerror("Error", f"Network error during registration: {str(e)}")
+            
+        finally:
+            self.register_btn.config(state='normal')
 
     def start_session_monitoring(self, user_id: int):
         """Start enhanced session monitoring"""
