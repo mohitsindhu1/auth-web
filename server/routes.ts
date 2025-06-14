@@ -541,7 +541,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate a random license key
+  // Generate a random license key (GET route for generating default values)
+  app.get('/api/applications/:id/licenses/generate', isAuthenticated, async (req: any, res) => {
+    try {
+      const applicationId = parseInt(req.params.id);
+      const application = await storage.getApplication(applicationId);
+      
+      if (!application) {
+        return res.status(404).json({ message: "Application not found" });
+      }
+
+      const userId = req.user.claims.sub;
+      if (application.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Generate a secure license key with default values
+      const { nanoid } = await import('nanoid');
+      const appPrefix = application.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4);
+      const licenseKey = `${appPrefix}-${nanoid(8)}-${nanoid(8)}-${nanoid(8)}`;
+      
+      // Return generated key without saving it
+      res.json({
+        generatedKey: licenseKey,
+        defaultMaxUsers: 1,
+        defaultValidityDays: 30
+      });
+    } catch (error) {
+      console.error("Error generating license key:", error);
+      res.status(500).json({ message: "Failed to generate license key" });
+    }
+  });
+
+  // Generate a random license key (POST route for creating)
   app.post('/api/applications/:id/licenses/generate', isAuthenticated, async (req: any, res) => {
     try {
       const applicationId = parseInt(req.params.id);
