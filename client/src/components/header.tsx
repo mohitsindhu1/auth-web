@@ -26,11 +26,17 @@ export default function Header() {
   const { logout } = useAuth();
 
   const handleLogout = async () => {
+    console.log("Logout button clicked");
     try {
+      console.log("Calling logout function...");
       await logout();
+      console.log("Logout completed successfully");
     } catch (error) {
       console.error("Logout error:", error);
-      window.location.href = "/api/logout";
+      // Force logout by clearing everything and redirecting
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = "/";
     }
   };
 
