@@ -131,8 +131,9 @@ export default function Dashboard() {
       return apiRequest("/api/applications", "POST", data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
+      // Force refetch instead of just invalidating cache
+      queryClient.refetchQueries({ queryKey: ["/api/applications"] });
+      queryClient.refetchQueries({ queryKey: ["/api/dashboard/stats"] });
       setNewAppName("");
       setNewAppDescription("");
       setIsNewAppDialogOpen(false);

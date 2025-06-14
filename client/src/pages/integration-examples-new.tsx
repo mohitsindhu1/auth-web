@@ -177,6 +177,21 @@ public class AuthApiClient
         });
     }
 
+    public async Task<AuthResponse> RegisterAsync(string username, string password, string email, string version = null, string hwid = null)
+    {
+        var registerData = new { username, password, email, version, hwid };
+        var json = JsonSerializer.Serialize(registerData);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        var response = await _httpClient.PostAsync($"{_baseUrl}/api/v1/register", content);
+        var responseJson = await response.Content.ReadAsStringAsync();
+
+        return JsonSerializer.Deserialize<AuthResponse>(responseJson, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        });
+    }
+
     public async Task<AuthResponse> VerifyAsync(int userId)
     {
         var verifyData = new { user_id = userId };
@@ -244,7 +259,9 @@ public partial class LoginForm : Form
     private AuthApiClient _authClient;
     private TextBox txtUsername;
     private TextBox txtPassword;
+    private TextBox txtEmail;
     private Button btnLogin;
+    private Button btnRegister;
     private Label lblStatus;
 
     // Session monitoring variables
