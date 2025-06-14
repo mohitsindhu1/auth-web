@@ -907,7 +907,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Validate license key
-      const license = await storage.validateLicenseKey(validatedData.licenseKey, application.id);
+      const license = await storage.validateLicenseKey(validatedData.licenseKey!, application.id);
       if (!license) {
         return res.status(400).json({ success: false, message: "Invalid or expired license key" });
       }
