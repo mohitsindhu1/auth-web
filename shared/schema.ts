@@ -58,17 +58,33 @@ export const applications = pgTable("applications", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-// Application users (users created for specific applications with time limits)
+// License keys for applications
+export const licenseKeys = pgTable("license_keys", {
+  id: serial("id").primaryKey(),
+  applicationId: integer("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+  licenseKey: text("license_key").notNull().unique(),
+  maxUsers: integer("max_users").notNull().default(1),
+  currentUsers: integer("current_users").notNull().default(0),
+  validityDays: integer("validity_days").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Application users (users created for specific applications with license keys)
 export const appUsers = pgTable("app_users", {
   id: serial("id").primaryKey(),
   applicationId: integer("application_id").notNull().references(() => applications.id, { onDelete: "cascade" }),
+  licenseKeyId: integer("license_key_id").references(() => licenseKeys.id, { onDelete: "set null" }),
   username: text("username").notNull(),
   password: text("password").notNull(),
   email: text("email"),
   isActive: boolean("is_active").notNull().default(true),
   isPaused: boolean("is_paused").notNull().default(false),
   hwid: text("hwid"), // Hardware ID for locking
-  expiresAt: timestamp("expires_at"), // Time limit for user validity
+  expiresAt: timestamp("expires_at"), // Time limit for user validity (inherited from license)
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastLogin: timestamp("last_login"),
   loginAttempts: integer("login_attempts").notNull().default(0),
@@ -163,6 +179,17 @@ export const insertApplicationSchema = createInsertSchema(applications).pick({
   hwidMismatchMessage: true,
 });
 
+export const insertLicenseKeySchema = createInsertSchema(licenseKeys).pick({
+  licenseKey: true,
+  maxUsers: true,
+  validityDays: true,
+  description: true,
+}).extend({
+  maxUsers: z.number().min(1).default(1),
+  validityDays: z.number().min(1),
+  description: z.string().optional().nullable(),
+});
+
 export const insertAppUserSchema = createInsertSchema(appUsers).pick({
   username: true,
   password: true,
@@ -172,6 +199,7 @@ export const insertAppUserSchema = createInsertSchema(appUsers).pick({
   email: z.union([z.string().email(), z.literal(""), z.null(), z.undefined()]).optional().transform(val => val === "" || val === undefined ? null : val),
   expiresAt: z.string().optional().nullable(),
   hwid: z.string().optional().nullable(),
+  licenseKey: z.string().min(1), // Required license key for registration
 });
 
 export const updateApplicationSchema = createInsertSchema(applications).pick({
@@ -242,6 +270,8 @@ export type User = typeof users.$inferSelect;
 export type Application = typeof applications.$inferSelect;
 export type InsertApplication = z.infer<typeof insertApplicationSchema>;
 export type UpdateApplication = z.infer<typeof updateApplicationSchema>;
+export type LicenseKey = typeof licenseKeys.$inferSelect;
+export type InsertLicenseKey = z.infer<typeof insertLicenseKeySchema>;
 export type AppUser = typeof appUsers.$inferSelect;
 export type InsertAppUser = z.infer<typeof insertAppUserSchema>;
 export type UpdateAppUser = z.infer<typeof updateAppUserSchema>;
