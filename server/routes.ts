@@ -1573,6 +1573,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.claims.sub;
       const validatedData = insertWebhookSchema.parse(req.body);
+      
+      // Validate webhook URL format
+      try {
+        const url = new URL(validatedData.url);
+        if (!['http:', 'https:'].includes(url.protocol)) {
+          return res.status(400).json({ message: "Webhook URL must use HTTP or HTTPS protocol" });
+        }
+      } catch (urlError) {
+        return res.status(400).json({ message: "Invalid webhook URL format" });
+      }
+      
+      // Test webhook endpoint before creating
+      try {
+        console.log(`Testing webhook URL: ${validatedData.url}`);
+        const testPayload = {
+          test: true,
+          message: "Webhook endpoint validation test",
+          timestamp: new Date().toISOString()
+        };
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        const response = await fetch(validatedData.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'PhantomAuth-WebhookValidator/1.0'
+          },
+          body: JSON.stringify(testPayload),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        // Check if response is HTML (common error)
+        const contentType = response.headers.get('content-type') || '';
+        const responseText = await response.text();
+        
+        if (responseText.includes('<!DOCTYPE') || responseText.includes('<html>')) {
+          return res.status(400).json({ 
+            message: "Webhook endpoint returned HTML instead of accepting JSON. Please verify the URL accepts POST requests with JSON payloads.",
+            details: `Status: ${response.status}, Content-Type: ${contentType}`
+          });
+        }
+
+        console.log(`Webhook test completed: Status ${response.status}`);
+        
+      } catch (testError) {
+        const errorMessage = testError instanceof Error ? testError.message : String(testError);
+        
+        // Allow creation if it's just a timeout or network issue, but warn the user
+        if (errorMessage.includes('AbortError') || errorMessage.includes('timeout')) {
+          console.log(`Webhook URL test timed out, but allowing creation: ${validatedData.url}`);
+        } else {
+          return res.status(400).json({ 
+            message: "Webhook endpoint test failed. Please verify the URL is accessible and accepts POST requests.",
+            error: errorMessage
+          });
+        }
+      }
+      
       const webhook = await storage.createWebhook(userId, validatedData);
       res.status(201).json(webhook);
     } catch (error) {
@@ -1984,8 +2046,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
               if (!response.ok) {
                 try {
-                  const errorText = await response.text();
-                  testResult.error = errorText;
+                  const contentType = response.headers.get('content-type') || '';
+                  const responseText = await response.text();
+                  
+                  // Check if response is HTML (common error indicator)
+                  if (responseText.includes('<!DOCTYPE') || responseText.includes('<html>')) {
+                    testResult.error = `Webhook endpoint returned HTML page instead of JSON. This usually means the URL is incorrect or doesn't accept POST requests. Status: ${response.status}`;
+                  } else if (contentType.includes('application/json')) {
+                    try {
+                      const jsonError = JSON.parse(responseText);
+                      testResult.error = JSON.stringify(jsonError);
+                    } catch (jsonParseError) {
+                      testResult.error = `Invalid JSON response: ${responseText.substring(0, 200)}...`;
+                    }
+                  } else {
+                    testResult.error = `Non-JSON response (${contentType}): ${responseText.substring(0, 200)}...`;
+                  }
                 } catch (e) {
                   testResult.error = `HTTP ${response.status} - Unable to read response`;
                 }

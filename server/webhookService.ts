@@ -178,14 +178,28 @@ export class WebhookService {
       
       if (!response.ok) {
         let errorText = '';
+        let isJsonResponse = false;
+        
         try {
-          errorText = await response.text();
+          const contentType = response.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            isJsonResponse = true;
+            const jsonError = await response.json();
+            errorText = JSON.stringify(jsonError);
+          } else {
+            errorText = await response.text();
+            // Check if response is HTML (common error indicator)
+            if (errorText.includes('<!DOCTYPE') || errorText.includes('<html>')) {
+              errorText = `Webhook endpoint returned HTML page instead of JSON. Status: ${response.status}. This usually means the URL is incorrect or the endpoint doesn't accept POST requests.`;
+            }
+          }
         } catch (e) {
-          errorText = 'Unable to read response';
+          errorText = `Unable to read response. Content-Type: ${response.headers.get('content-type') || 'unknown'}`;
         }
         
         console.error(`❌ Webhook error (${response.status}):`, errorText);
         console.error(`🔍 Details: URL=${webhook.url}, Event=${payload.event}, User=${payload.user_data?.id || 'unknown'}`);
+        console.error(`📄 Response type: ${isJsonResponse ? 'JSON' : 'Non-JSON'}`);
         
         // Enhanced retry logic optimized for Vietnam server connectivity
         const shouldRetry = retryCount < maxRetries && (

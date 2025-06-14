@@ -139,6 +139,36 @@ export default function Webhooks() {
       });
       return;
     }
+
+    // Validate URL format on frontend
+    try {
+      const url = new URL(formData.url);
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        toast({
+          title: "Error",
+          description: "Webhook URL must use HTTP or HTTPS protocol",
+          variant: "destructive"
+        });
+        return;
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid URL (e.g., https://your-site.com/webhook)",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (formData.events.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one event to trigger the webhook",
+        variant: "destructive"
+      });
+      return;
+    }
+
     createWebhookMutation.mutate(formData);
   };
 
