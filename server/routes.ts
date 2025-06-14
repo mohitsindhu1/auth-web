@@ -1587,36 +1587,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Test webhook endpoint before creating
       try {
         console.log(`Testing webhook URL: ${validatedData.url}`);
-        const testPayload = {
-          test: true,
-          message: "Webhook endpoint validation test",
-          timestamp: new Date().toISOString()
-        };
+        const isDiscordWebhook = validatedData.url.includes('discord.com/api/webhooks');
+        
+        let testPayload;
+        if (isDiscordWebhook) {
+          // Use Discord-compatible format for validation
+          testPayload = {
+            embeds: [{
+              title: "✅ PhantomAuth Webhook Validation",
+              description: "This webhook endpoint has been successfully validated and registered with PhantomAuth.",
+              color: 0x00ff00,
+              fields: [
+                {
+                  name: "Status",
+                  value: "Webhook endpoint validated",
+                  inline: true
+                },
+                {
+                  name: "Server",
+                  value: "Vietnam/India Optimized",
+                  inline: true
+                }
+              ],
+              footer: {
+                text: "PhantomAuth - Webhook Validation"
+              },
+              timestamp: new Date().toISOString()
+            }]
+          };
+        } else {
+          testPayload = {
+            test: true,
+            message: "Webhook endpoint validation test",
+            timestamp: new Date().toISOString()
+          };
+        }
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased timeout for India-Vietnam
+
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'User-Agent': 'PhantomAuth-WebhookValidator/1.0',
+          'Accept': 'application/json, text/plain, */*',
+          'Connection': 'keep-alive'
+        };
 
         const response = await fetch(validatedData.url, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'PhantomAuth-WebhookValidator/1.0'
-          },
+          headers,
           body: JSON.stringify(testPayload),
-          signal: controller.signal
+          signal: controller.signal,
+          keepalive: true,
+          mode: 'cors'
         });
 
         clearTimeout(timeoutId);
 
-        // Check if response is HTML (common error)
-        const contentType = response.headers.get('content-type') || '';
-        const responseText = await response.text();
-        
-        if (responseText.includes('<!DOCTYPE') || responseText.includes('<html>')) {
-          return res.status(400).json({ 
-            message: "Webhook endpoint returned HTML instead of accepting JSON. Please verify the URL accepts POST requests with JSON payloads.",
-            details: `Status: ${response.status}, Content-Type: ${contentType}`
-          });
+        // For Discord webhooks, 204 is success, for others check if HTML response
+        if (isDiscordWebhook) {
+          if (response.status === 204 || response.status === 200) {
+            console.log(`Discord webhook validation successful: Status ${response.status}`);
+          } else {
+            const responseText = await response.text().catch(() => '');
+            return res.status(400).json({ 
+              message: "Discord webhook validation failed. Please verify the webhook URL is correct.",
+              details: `Status: ${response.status}, Response: ${responseText.substring(0, 200)}`
+            });
+          }
+        } else {
+          // Check if response is HTML (common error)
+          const contentType = response.headers.get('content-type') || '';
+          const responseText = await response.text();
+          
+          if (responseText.includes('<!DOCTYPE') || responseText.includes('<html>')) {
+            return res.status(400).json({ 
+              message: "Webhook endpoint returned HTML instead of accepting JSON. Please verify the URL accepts POST requests with JSON payloads.",
+              details: `Status: ${response.status}, Content-Type: ${contentType}`
+            });
+          }
         }
 
         console.log(`Webhook test completed: Status ${response.status}`);
@@ -1970,21 +2019,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         recommendations: [] as string[]
       };
 
-      // Multiple connectivity tests for comprehensive analysis
+      // Multiple connectivity tests optimized for India-Vietnam connectivity
+      const isDiscordWebhook = webhook_url.includes('discord.com/api/webhooks');
+      
       const testConfigs = [
-        { name: 'Basic Test', timeout: 15000, retry: false },
-        { name: 'Extended Timeout', timeout: 45000, retry: false },
-        { name: 'With Retry Logic', timeout: 30000, retry: true }
+        { name: 'Basic Test', timeout: 20000, retry: false },
+        { name: 'Extended Timeout', timeout: 60000, retry: false },
+        { name: 'With Retry Logic', timeout: 45000, retry: true }
       ];
 
       if (test_type === 'comprehensive') {
         testConfigs.push(
-          { name: 'High Latency Test', timeout: 60000, retry: true },
-          { name: 'Quick Test', timeout: 5000, retry: false }
+          { name: 'High Latency Test', timeout: 90000, retry: true },
+          { name: 'Quick Test', timeout: 10000, retry: false }
         );
       }
 
+      // For Discord webhooks, add rate limiting delays
+      let discordDelay = 0;
+
       for (const config of testConfigs) {
+        // Add delay for Discord webhooks to respect rate limits
+        if (isDiscordWebhook && discordDelay > 0) {
+          console.log(`Waiting ${discordDelay}ms to respect Discord rate limits...`);
+          await new Promise(resolve => setTimeout(resolve, discordDelay));
+        }
+        
         const testStart = Date.now();
         let testResult: any = {
           test_name: config.name,
@@ -2002,14 +2062,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), config.timeout);
 
-          const testPayload = {
-            test: true,
-            test_type: config.name,
-            message: "Vietnam Server Connectivity Test from PhantomAuth",
-            timestamp: new Date().toISOString(),
-            server_diagnostics: serverInfo,
-            client_info: requestInfo
-          };
+          // Check if this is a Discord webhook and format payload accordingly
+          const isDiscordWebhook = webhook_url.includes('discord.com/api/webhooks');
+          
+          let testPayload;
+          if (isDiscordWebhook) {
+            // Discord webhook format
+            testPayload = {
+              embeds: [{
+                title: "🔧 PhantomAuth Connectivity Test",
+                description: `Testing webhook connectivity from ${serverInfo.region || 'Vietnam'} server`,
+                color: 0x00ff00,
+                fields: [
+                  {
+                    name: "Test Type",
+                    value: config.name,
+                    inline: true
+                  },
+                  {
+                    name: "Server Region",
+                    value: serverInfo.region || "Vietnam/Unknown",
+                    inline: true
+                  },
+                  {
+                    name: "Test Time",
+                    value: new Date().toISOString(),
+                    inline: false
+                  }
+                ],
+                footer: {
+                  text: "PhantomAuth Webhook Diagnostics"
+                },
+                timestamp: new Date().toISOString()
+              }]
+            };
+          } else {
+            // Standard webhook format
+            testPayload = {
+              test: true,
+              test_type: config.name,
+              message: "Vietnam Server Connectivity Test from PhantomAuth",
+              timestamp: new Date().toISOString(),
+              server_diagnostics: serverInfo,
+              client_info: requestInfo
+            };
+          }
 
           let attempt = 0;
           let lastError = null;
@@ -2019,17 +2116,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const attemptStart = Date.now();
             
             try {
+              const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'User-Agent': 'PhantomAuth-IndiaVietnamDiagnostics/1.0',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Cache-Control': 'no-cache',
+                'X-Server-Region': serverInfo.region || 'Vietnam',
+                'X-Client-Country': 'India',
+                'X-Test-Type': config.name,
+                'X-Attempt': attempt.toString()
+              };
+
+              // Don't add custom headers for Discord webhooks
+              if (!isDiscordWebhook) {
+                headers['X-Webhook-Test'] = 'true';
+                headers['X-PhantomAuth-Diagnostics'] = '1.0';
+              }
+
               const response = await fetch(webhook_url, {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'User-Agent': 'PhantomAuth-VietnamDiagnostics/1.0',
-                  'X-Test-Type': config.name,
-                  'X-Server-Region': serverInfo.region,
-                  'X-Attempt': attempt.toString()
-                },
+                headers,
                 body: JSON.stringify(testPayload),
-                signal: controller.signal
+                signal: controller.signal,
+                // Optimize for India-Vietnam connectivity
+                keepalive: true,
+                mode: 'cors',
+                cache: 'no-cache',
+                redirect: 'follow',
+                referrerPolicy: 'no-referrer'
               });
 
               clearTimeout(timeoutId);
@@ -2067,6 +2183,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
               } else {
                 console.log(`✅ ${config.name} successful in ${responseTime}ms`);
+                // For Discord webhooks, record success and increase delay for next test
+                if (isDiscordWebhook) {
+                  discordDelay = Math.max(2000, discordDelay); // Minimum 2 second delay between tests
+                }
                 break; // Success, exit retry loop
               }
 
@@ -2086,6 +2206,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           } while (config.retry && attempt < 3 && !testResult.success);
 
+          // Handle Discord rate limiting
+          if (isDiscordWebhook && testResult.status_code === 429) {
+            discordDelay = Math.min(discordDelay * 2, 30000); // Exponential backoff, max 30 seconds
+            testResult.error = `Discord rate limit hit. Increasing delay to ${discordDelay}ms for subsequent tests.`;
+          } else if (isDiscordWebhook && testResult.success) {
+            discordDelay = Math.max(1000, discordDelay / 2); // Reduce delay on success
+          }
+
           if (!testResult.success && lastError) {
             testResult.error = lastError instanceof Error ? lastError.message : String(lastError);
           }
@@ -2101,9 +2229,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         diagnostics.connectivity_tests.push(testResult);
         
-        // Add delay between tests to prevent overwhelming
-        if (testConfigs.indexOf(config) < testConfigs.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
+        // Add intelligent delay between tests
+        const configIndex = testConfigs.indexOf(config);
+        if (configIndex < testConfigs.length - 1) {
+          let delayTime = 2000; // Base 2 second delay
+          
+          if (isDiscordWebhook) {
+            delayTime = Math.max(3000, discordDelay); // Minimum 3 seconds for Discord
+            console.log(`Discord webhook detected - using ${delayTime}ms delay between tests`);
+          }
+          
+          console.log(`Waiting ${delayTime}ms before next test...`);
+          await new Promise(resolve => setTimeout(resolve, delayTime));
         }
       }
 
