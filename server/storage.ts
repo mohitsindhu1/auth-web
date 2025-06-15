@@ -207,8 +207,50 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteApplication(id: number): Promise<boolean> {
-    const result = await db.delete(applications).where(eq(applications.id, id));
-    return (result.rowCount || 0) > 0;
+    try {
+      console.log(`Storage: Attempting to delete application with ID: ${id}`);
+      
+      // First check if application exists
+      const [existingApp] = await db.select().from(applications).where(eq(applications.id, id));
+      if (!existingApp) {
+        console.log(`Storage: Application with ID ${id} not found`);
+        return false;
+      }
+      console.log(`Storage: Found application:`, existingApp);
+      
+      // Delete related data first to avoid foreign key constraints
+      console.log(`Storage: Deleting related app users for application ${id}`);
+      const appUsersResult = await db.delete(appUsers).where(eq(appUsers.applicationId, id));
+      console.log(`Storage: Deleted ${appUsersResult.rowCount || 0} app users`);
+      
+      console.log(`Storage: Deleting related license keys for application ${id}`);
+      const licenseKeysResult = await db.delete(licenseKeys).where(eq(licenseKeys.applicationId, id));
+      console.log(`Storage: Deleted ${licenseKeysResult.rowCount || 0} license keys`);
+      
+      console.log(`Storage: Deleting related blacklist entries for application ${id}`);
+      const blacklistResult = await db.delete(blacklist).where(eq(blacklist.applicationId, id));
+      console.log(`Storage: Deleted ${blacklistResult.rowCount || 0} blacklist entries`);
+      
+      console.log(`Storage: Deleting related activity logs for application ${id}`);
+      const activityLogsResult = await db.delete(activityLogs).where(eq(activityLogs.applicationId, id));
+      console.log(`Storage: Deleted ${activityLogsResult.rowCount || 0} activity logs`);
+      
+      console.log(`Storage: Deleting related active sessions for application ${id}`);
+      const activeSessionsResult = await db.delete(activeSessions).where(eq(activeSessions.applicationId, id));
+      console.log(`Storage: Deleted ${activeSessionsResult.rowCount || 0} active sessions`);
+      
+      // Finally delete the application
+      console.log(`Storage: Deleting application ${id}`);
+      const result = await db.delete(applications).where(eq(applications.id, id));
+      console.log(`Storage: Delete result - rowCount: ${result.rowCount}`);
+      
+      const success = (result.rowCount || 0) > 0;
+      console.log(`Storage: Application deletion ${success ? 'successful' : 'failed'}`);
+      return success;
+    } catch (error) {
+      console.error(`Storage: Error deleting application ${id}:`, error);
+      throw error;
+    }
   }
 
   async getAllApplications(userId: string): Promise<Application[]> {
