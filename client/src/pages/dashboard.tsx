@@ -236,7 +236,7 @@ export default function Dashboard() {
   // Pause user mutation
   const pauseUserMutation = useMutation({
     mutationFn: async (data: { appId: number; userId: number }) => {
-      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}/pause`, "PUT");
+      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}/pause`, { method: "PUT" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
@@ -257,7 +257,7 @@ export default function Dashboard() {
   // Unpause user mutation
   const unpauseUserMutation = useMutation({
     mutationFn: async (data: { appId: number; userId: number }) => {
-      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}/unpause`, "PUT");
+      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}/unpause`, { method: "PUT" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
@@ -278,7 +278,7 @@ export default function Dashboard() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (data: { appId: number; userId: number }) => {
-      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}`, "DELETE");
+      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
@@ -299,7 +299,7 @@ export default function Dashboard() {
   // Delete application mutation
   const deleteApplicationMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/applications/${id}`, "DELETE");
+      return apiRequest(`/api/applications/${id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
@@ -1237,6 +1237,36 @@ export default function Dashboard() {
                 disabled={updateUserMutation.isPending}
               >
                 {updateUserMutation.isPending ? "Updating..." : "Update User"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteConfirmDialogOpen} onOpenChange={setDeleteConfirmDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Application</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete "{appToDelete?.name}"? This action cannot be undone and will remove all associated users, license keys, and data.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setDeleteConfirmDialogOpen(false);
+                  setAppToDelete(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={confirmDeleteApplication}
+                disabled={deleteApplicationMutation.isPending}
+              >
+                {deleteApplicationMutation.isPending ? "Deleting..." : "Delete Application"}
               </Button>
             </DialogFooter>
           </DialogContent>
