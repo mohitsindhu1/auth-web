@@ -384,25 +384,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete application
   app.delete('/api/applications/:id', isAuthenticated, async (req: any, res) => {
     try {
+      console.log("DELETE application request received for ID:", req.params.id);
       const applicationId = parseInt(req.params.id);
       const application = await storage.getApplication(applicationId);
       
       if (!application) {
+        console.log("Application not found for ID:", applicationId);
         return res.status(404).json({ message: "Application not found" });
       }
 
       // Check if user owns this application
       const userId = req.user.claims.sub;
+      console.log("Checking ownership - User:", userId, "App owner:", application.userId);
       if (application.userId !== userId) {
+        console.log("Access denied - user does not own application");
         return res.status(403).json({ message: "Access denied" });
       }
 
+      console.log("Attempting to delete application:", applicationId);
       const deleted = await storage.deleteApplication(applicationId);
+      console.log("Delete result:", deleted);
       
       if (!deleted) {
+        console.log("Failed to delete application");
         return res.status(404).json({ message: "Application not found" });
       }
 
+      console.log("Application deleted successfully");
       res.json({ message: "Application deleted successfully" });
     } catch (error) {
       console.error("Error deleting application:", error);
