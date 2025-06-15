@@ -46,7 +46,7 @@ export default function Header() {
               <Link href="/" className="flex items-center space-x-3">
                 <Shield className="h-8 w-8 text-primary" />
                 <div>
-                  <span className="text-xl font-bold text-foreground">PhantumAuth</span>
+                  <span className="text-xl font-bold text-foreground">PHANTOM AUTH</span>
                   <Badge className="ml-2 bg-primary text-primary-foreground text-xs">
                     Enterprise
                   </Badge>
@@ -177,7 +177,7 @@ export default function Header() {
             <Link href="/" className="flex items-center space-x-3">
               <Shield className="h-8 w-8 text-primary" />
               <div>
-                <span className="text-xl font-bold text-foreground">AuthAPI</span>
+                <span className="text-xl font-bold text-foreground">PHANTOM AUTH</span>
                 <Badge className="ml-2 bg-primary text-primary-foreground text-xs">
                   Enterprise
                 </Badge>

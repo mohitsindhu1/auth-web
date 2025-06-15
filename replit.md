@@ -1,4 +1,4 @@
-# PhantumAuth - Multi-Tenant Authentication System
+# PHANTOM AUTH - Multi-Tenant Authentication System
 
 ## Overview
 
