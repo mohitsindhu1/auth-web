@@ -145,6 +145,13 @@ export default function UserManagement() {
   );
 
   const handleEditUser = (userToEdit: User) => {
+    console.log('Editing user:', {
+      email: userToEdit.email,
+      role: userToEdit.role,
+      permissions: userToEdit.permissions,
+      isActive: userToEdit.isActive
+    });
+    
     setSelectedUser(userToEdit);
     setEditData({
       role: userToEdit.role,
@@ -407,9 +414,22 @@ export default function UserManagement() {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm text-muted-foreground">
-                            {userItem.permissions?.length || 0} permissions
-                          </span>
+                          <div className="flex flex-wrap gap-1 max-w-xs">
+                            {userItem.permissions && userItem.permissions.length > 0 ? (
+                              userItem.permissions.slice(0, 3).map(permission => (
+                                <Badge key={permission} variant="outline" className="text-xs">
+                                  {permission.replace('_', ' ')}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-xs text-muted-foreground">No permissions</span>
+                            )}
+                            {userItem.permissions && userItem.permissions.length > 3 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{userItem.permissions.length - 3} more
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <span className="text-sm text-muted-foreground">
