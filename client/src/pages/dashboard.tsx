@@ -104,6 +104,8 @@ export default function Dashboard() {
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<number>>(new Set());
+  const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false);
+  const [appToDelete, setAppToDelete] = useState<Application | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -128,7 +130,7 @@ export default function Dashboard() {
   // Create application mutation
   const createApplicationMutation = useMutation({
     mutationFn: async (data: { name: string; description: string; version?: string; hwidLockEnabled?: boolean }) => {
-      return apiRequest("/api/applications", "POST", data);
+      return apiRequest("/api/applications", { method: "POST", body: data });
     },
     onSuccess: () => {
       // Force refetch instead of just invalidating cache
@@ -164,7 +166,7 @@ export default function Dashboard() {
         ...(data.hwid && { hwid: data.hwid })
       };
 
-      return apiRequest(`/api/applications/${selectedApp.id}/users`, "POST", payload);
+      return apiRequest(`/api/applications/${selectedApp.id}/users`, { method: "POST", body: payload });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
@@ -188,7 +190,7 @@ export default function Dashboard() {
   // Update application mutation
   const updateApplicationMutation = useMutation({
     mutationFn: async (data: { id: number; updates: Partial<Application> }) => {
-      return apiRequest(`/api/applications/${data.id}`, "PUT", data.updates);
+      return apiRequest(`/api/applications/${data.id}`, { method: "PUT", body: data.updates });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
@@ -211,7 +213,7 @@ export default function Dashboard() {
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: async (data: { appId: number; userId: number; updates: Partial<AppUser> }) => {
-      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}`, "PUT", data.updates);
+      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}`, { method: "PUT", body: data.updates });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
@@ -376,6 +378,19 @@ export default function Dashboard() {
 
   const handleLogout = () => {
     window.location.href = '/api/logout';
+  };
+
+  const handleDeleteApplication = (app: Application) => {
+    setAppToDelete(app);
+    setDeleteConfirmDialogOpen(true);
+  };
+
+  const confirmDeleteApplication = () => {
+    if (appToDelete) {
+      deleteApplicationMutation.mutate(appToDelete.id);
+      setDeleteConfirmDialogOpen(false);
+      setAppToDelete(null);
+    }
   };
 
   return (
@@ -648,7 +663,7 @@ export default function Dashboard() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => deleteApplicationMutation.mutate(app.id)}
+                                onClick={() => handleDeleteApplication(app)}
                                 className="text-red-600 hover:text-red-700"
                                 title="Delete Application"
                               >
