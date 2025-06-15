@@ -104,6 +104,8 @@ export default function Dashboard() {
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [visibleKeys, setVisibleKeys] = useState<Set<number>>(new Set());
+  const [deleteConfirmDialogOpen, setDeleteConfirmDialogOpen] = useState(false);
+  const [appToDelete, setAppToDelete] = useState<Application | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -128,7 +130,7 @@ export default function Dashboard() {
   // Create application mutation
   const createApplicationMutation = useMutation({
     mutationFn: async (data: { name: string; description: string; version?: string; hwidLockEnabled?: boolean }) => {
-      return apiRequest("/api/applications", "POST", data);
+      return apiRequest("/api/applications", { method: "POST", body: data });
     },
     onSuccess: () => {
       // Force refetch instead of just invalidating cache
@@ -164,7 +166,7 @@ export default function Dashboard() {
         ...(data.hwid && { hwid: data.hwid })
       };
 
-      return apiRequest(`/api/applications/${selectedApp.id}/users`, "POST", payload);
+      return apiRequest(`/api/applications/${selectedApp.id}/users`, { method: "POST", body: payload });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
@@ -188,7 +190,7 @@ export default function Dashboard() {
   // Update application mutation
   const updateApplicationMutation = useMutation({
     mutationFn: async (data: { id: number; updates: Partial<Application> }) => {
-      return apiRequest(`/api/applications/${data.id}`, "PUT", data.updates);
+      return apiRequest(`/api/applications/${data.id}`, { method: "PUT", body: data.updates });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
@@ -211,7 +213,7 @@ export default function Dashboard() {
   // Update user mutation
   const updateUserMutation = useMutation({
     mutationFn: async (data: { appId: number; userId: number; updates: Partial<AppUser> }) => {
-      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}`, "PUT", data.updates);
+      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}`, { method: "PUT", body: data.updates });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
@@ -234,7 +236,7 @@ export default function Dashboard() {
   // Pause user mutation
   const pauseUserMutation = useMutation({
     mutationFn: async (data: { appId: number; userId: number }) => {
-      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}/pause`, "PUT");
+      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}/pause`, { method: "PUT" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
@@ -255,7 +257,7 @@ export default function Dashboard() {
   // Unpause user mutation
   const unpauseUserMutation = useMutation({
     mutationFn: async (data: { appId: number; userId: number }) => {
-      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}/unpause`, "PUT");
+      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}/unpause`, { method: "PUT" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
@@ -276,7 +278,7 @@ export default function Dashboard() {
   // Delete user mutation
   const deleteUserMutation = useMutation({
     mutationFn: async (data: { appId: number; userId: number }) => {
-      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}`, "DELETE");
+      return apiRequest(`/api/applications/${data.appId}/users/${data.userId}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications", selectedApp?.id, "users"] });
@@ -297,7 +299,7 @@ export default function Dashboard() {
   // Delete application mutation
   const deleteApplicationMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/applications/${id}`, "DELETE");
+      return apiRequest(`/api/applications/${id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
@@ -376,6 +378,19 @@ export default function Dashboard() {
 
   const handleLogout = () => {
     window.location.href = '/api/logout';
+  };
+
+  const handleDeleteApplication = (app: Application) => {
+    setAppToDelete(app);
+    setDeleteConfirmDialogOpen(true);
+  };
+
+  const confirmDeleteApplication = () => {
+    if (appToDelete) {
+      deleteApplicationMutation.mutate(appToDelete.id);
+      setDeleteConfirmDialogOpen(false);
+      setAppToDelete(null);
+    }
   };
 
   return (
@@ -648,7 +663,7 @@ export default function Dashboard() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => deleteApplicationMutation.mutate(app.id)}
+                                onClick={() => handleDeleteApplication(app)}
                                 className="text-red-600 hover:text-red-700"
                                 title="Delete Application"
                               >
@@ -1222,6 +1237,36 @@ export default function Dashboard() {
                 disabled={updateUserMutation.isPending}
               >
                 {updateUserMutation.isPending ? "Updating..." : "Update User"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={deleteConfirmDialogOpen} onOpenChange={setDeleteConfirmDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Application</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete "{appToDelete?.name}"? This action cannot be undone and will remove all associated users, license keys, and data.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setDeleteConfirmDialogOpen(false);
+                  setAppToDelete(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={confirmDeleteApplication}
+                disabled={deleteApplicationMutation.isPending}
+              >
+                {deleteApplicationMutation.isPending ? "Deleting..." : "Delete Application"}
               </Button>
             </DialogFooter>
           </DialogContent>
