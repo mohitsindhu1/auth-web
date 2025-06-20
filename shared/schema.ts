@@ -193,13 +193,11 @@ export const insertLicenseKeySchema = createInsertSchema(licenseKeys).pick({
 export const insertAppUserSchema = createInsertSchema(appUsers).pick({
   username: true,
   password: true,
-  expiresAt: true,
-  hwid: true,
 }).extend({
   email: z.union([z.string().email(), z.literal(""), z.null(), z.undefined()]).optional().transform(val => val === "" || val === undefined ? null : val),
-  expiresAt: z.string().optional().nullable(),
-  hwid: z.string().optional().nullable(),
-  licenseKey: z.string().optional(), // Optional license key - required for external API, optional for admin creation
+  expiresAt: z.union([z.string(), z.null(), z.undefined()]).optional().nullable(),
+  hwid: z.union([z.string(), z.null(), z.undefined()]).optional().nullable(),
+  licenseKey: z.union([z.string(), z.null(), z.undefined()]).optional(), // Optional license key - required for external API, optional for admin creation
 });
 
 export const updateApplicationSchema = createInsertSchema(applications).pick({

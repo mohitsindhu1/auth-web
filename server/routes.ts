@@ -710,6 +710,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         processedData.email = null;
       }
       
+      // Convert "none" to empty string and handle license key validation
+      if (processedData.licenseKey === "none") {
+        processedData.licenseKey = "";
+      }
+      
       // Validate license key if provided
       if (processedData.licenseKey && processedData.licenseKey.trim()) {
         const license = await storage.validateLicenseKey(processedData.licenseKey, applicationId);
