@@ -282,4 +282,4 @@ export type InsertBlacklistEntry = z.infer<typeof insertBlacklistSchema>;
 export type ActivityLog = typeof activityLogs.$inferSelect;
 export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
 export type ActiveSession = typeof activeSessions.$inferSelect;
-    
+  
