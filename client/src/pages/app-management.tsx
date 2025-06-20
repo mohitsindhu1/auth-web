@@ -626,7 +626,7 @@ export default function AppManagement() {
                                 <SelectValue placeholder="Select a license key (optional)" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">No license key</SelectItem>
+                                <SelectItem value="none">No license key</SelectItem>
                                 {licenseKeys
                                   .filter(key => key.isActive && key.currentUsers < key.maxUsers && new Date(key.expiresAt) > new Date())
                                   .map((key) => (
