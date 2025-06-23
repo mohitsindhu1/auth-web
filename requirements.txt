@@ -1,0 +1,42 @@
+
+# Core HTTP and networking
+requests>=2.31.0
+
+# GUI framework (usually pre-installed with Python)
+# tkinter - comes with Python standard library
+
+# Security and hashing (standard library)
+# hashlib - comes with Python standard library
+
+# System and OS utilities (standard library)  
+# os - comes with Python standard library
+# sys - comes with Python standard library
+# threading - comes with Python standard library
+# time - comes with Python standard library
+# uuid - comes with Python standard library
+
+# JSON handling (standard library)
+# json - comes with Python standard library
+
+# Optional: For enhanced HTTP sessions
+urllib3>=2.0.0
+
+# Optional: For better JSON handling
+simplejson>=3.19.0
+
+# Optional: For cryptographic operations
+cryptography>=41.0.0
+
+# Optional: For Windows-specific operations (if needed)
+pywin32>=306; sys_platform == "win32"
+
+# Optional: For cross-platform system information
+psutil>=5.9.0
+
+# Optional: For configuration management
+configparser>=6.0.0
+
+# Development dependencies (optional)
+# pytest>=7.4.0
+# black>=23.0.0
+# flake8>=6.0.0
