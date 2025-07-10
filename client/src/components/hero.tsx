@@ -11,31 +11,49 @@ export default function Hero() {
   };
 
   return (
-    <section className="py-20 gradient-hero text-white">
+    <section className="py-20 gradient-hero text-white" itemScope itemType="https://schema.org/SoftwareApplication">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
           {/* Professional Logo */}
-          <div className="flex items-center justify-center mb-8">
-            <Shield className="h-12 w-12 text-white mr-3" />
+          <header className="flex items-center justify-center mb-8">
+            <Shield className="h-12 w-12 text-white mr-3" aria-hidden="true" />
             <div className="text-left">
-              <h1 className="text-4xl md:text-5xl font-bold text-white">
+              <h1 className="text-4xl md:text-5xl font-bold text-white" itemProp="name">
                 PHANTOM AUTH
               </h1>
-              <p className="text-blue-100 font-medium">Professional Authentication</p>
+              <p className="text-blue-100 font-medium" itemProp="applicationCategory">Professional Authentication System</p>
             </div>
-          </div>
+          </header>
 
           {/* Main Heading */}
           <h2 className="text-4xl md:text-6xl font-bold mb-6 text-white">
-            Multi-Tenant Authentication
+            Enterprise Multi-Tenant Authentication System
             <br />
-            <span className="text-blue-100">Made Simple</span>
+            <span className="text-blue-100">Built for Scale & Security</span>
           </h2>
           
-          <p className="text-xl md:text-2xl mb-8 text-blue-100 max-w-4xl mx-auto">
-            Each Google account creates its own isolated authentication environment with unique API keys, 
-            user management, and secure endpoints. Perfect for enterprise applications and SaaS platforms.
+          <p className="text-xl md:text-2xl mb-8 text-blue-100 max-w-4xl mx-auto" itemProp="description">
+            Professional authentication platform where each Google account creates its own isolated tenant environment. 
+            Features unique API keys, comprehensive user management, hardware ID locking, and enterprise-grade security. 
+            Perfect for SaaS platforms, enterprise applications, and multi-tenant software solutions.
           </p>
+
+          {/* SEO-Enhanced Keywords Section */}
+          <div className="mb-8">
+            <p className="text-lg text-blue-100 mb-4">
+              <strong>Trusted by developers worldwide for:</strong>
+            </p>
+            <div className="flex flex-wrap justify-center gap-3 text-sm">
+              <span className="bg-white/20 px-3 py-1 rounded-full">Multi-Tenant Authentication</span>
+              <span className="bg-white/20 px-3 py-1 rounded-full">Enterprise Security</span>
+              <span className="bg-white/20 px-3 py-1 rounded-full">Google OAuth Integration</span>
+              <span className="bg-white/20 px-3 py-1 rounded-full">API Key Management</span>
+              <span className="bg-white/20 px-3 py-1 rounded-full">SaaS Authentication</span>
+              <span className="bg-white/20 px-3 py-1 rounded-full">User Management</span>
+              <span className="bg-white/20 px-3 py-1 rounded-full">Hardware ID Locking</span>
+              <span className="bg-white/20 px-3 py-1 rounded-full">Real-time Monitoring</span>
+            </div>
+          </div>
 
           {/* Professional Stats */}
           <div className="flex flex-wrap justify-center gap-6 mb-12">
