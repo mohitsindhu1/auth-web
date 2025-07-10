@@ -19,6 +19,13 @@ Allow: /features
 Allow: /pricing
 Allow: /contact
 
+# Brand protection and monopoly files
+Allow: /phantom-auth-brand-dominance.html
+Allow: /phantom-auth-monopoly-seo.html
+Allow: /brand-seo-booster.html
+Allow: /google-search-console-meta.html
+Allow: /brand-authority-signals.json
+
 # Crawl delay
 Crawl-delay: 1
 

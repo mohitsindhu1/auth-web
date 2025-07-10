@@ -1,0 +1,93 @@
+{
+  "brand": {
+    "primary": "PHANTOM AUTH",
+    "variations": [
+      "Phantom Auth",
+      "PhantomAuth", 
+      "Phantom Authentication",
+      "Phantoms Auth",
+      "Phantom-Auth",
+      "Phantom_Auth",
+      "phantom auth",
+      "phantoms auth",
+      "phantomauth",
+      "phantom-auth",
+      "phantom_auth",
+      "phantom authentication",
+      "phantom security",
+      "phantom enterprise auth"
+    ]
+  },
+  "keywords": {
+    "primary": [
+      "phantom auth",
+      "phantoms auth",
+      "phantom authentication",
+      "phantomauth",
+      "phantom enterprise auth",
+      "phantom security system",
+      "phantom multi-tenant auth",
+      "phantom api authentication"
+    ],
+    "long_tail": [
+      "phantom auth enterprise authentication system",
+      "phantom auth multi-tenant authentication",
+      "phantom auth google oauth integration",
+      "phantom auth api key management",
+      "phantom auth secure authentication",
+      "phantom auth user management system",
+      "phantom auth saas authentication",
+      "phantom auth authentication framework",
+      "phantom auth enterprise security",
+      "phantom auth hardware id locking",
+      "phantom auth webhook notifications",
+      "phantom auth real-time monitoring",
+      "phantom auth session management",
+      "phantom auth rate limiting",
+      "phantom auth audit logging"
+    ],
+    "competitive": [
+      "better than auth0",
+      "alternative to firebase auth",
+      "enterprise auth solution",
+      "multi-tenant auth system",
+      "secure api authentication",
+      "google oauth integration",
+      "authentication management system",
+      "enterprise security framework",
+      "saas authentication platform",
+      "user management solution"
+    ]
+  },
+  "search_intent": {
+    "informational": [
+      "what is phantom auth",
+      "how phantom auth works",
+      "phantom auth features",
+      "phantom auth documentation",
+      "phantom auth tutorial",
+      "phantom auth guide",
+      "phantom auth vs auth0",
+      "phantom auth pricing",
+      "phantom auth reviews"
+    ],
+    "navigational": [
+      "phantom auth login",
+      "phantom auth dashboard",
+      "phantom auth api",
+      "phantom auth documentation",
+      "phantom auth support",
+      "phantom auth github",
+      "phantom auth website"
+    ],
+    "transactional": [
+      "phantom auth free trial",
+      "phantom auth pricing",
+      "phantom auth enterprise",
+      "phantom auth professional",
+      "phantom auth signup",
+      "phantom auth demo",
+      "phantom auth contact sales"
+    ]
+  }
+}
