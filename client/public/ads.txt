@@ -1,0 +1,12 @@
+# PHANTOM AUTH - Ads.txt
+# This file is for advertising transparency and preventing ad fraud
+
+# Current advertising partners
+# google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
+
+# Contact information
+# For inquiries about advertising partnerships:
+# Email: advertising@phantomauth.com
+# Website: https://phantomauth.com/advertising
+
+# Note: Currently not serving ads - this file is for future use

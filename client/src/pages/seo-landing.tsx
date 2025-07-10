@@ -6,6 +6,11 @@ import Testimonials from "@/components/testimonials";
 import BlogPreview from "@/components/blog-preview";
 import Footer from "@/components/footer";
 import Header from "@/components/header";
+import SEOHead from "@/components/seo-head";
+import Analytics from "@/components/analytics";
+import PerformanceMonitor from "@/components/performance-monitor";
+import SchemaMarkup from "@/components/schema-markup";
+import LocalSEO from "@/components/local-seo";
 import { useEffect } from "react";
 
 export default function SEOLanding() {
@@ -79,6 +84,13 @@ export default function SEOLanding() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* SEO Components */}
+      <SEOHead />
+      <Analytics />
+      <PerformanceMonitor />
+      <SchemaMarkup />
+      <LocalSEO />
+      
       {/* Header Navigation */}
       <Header />
       
@@ -102,28 +114,6 @@ export default function SEOLanding() {
       
       {/* Footer */}
       <Footer />
-      
-      {/* Additional SEO Elements */}
-      <script type="application/ld+json">
-        {JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "LocalBusiness",
-          "name": "PHANTOM AUTH",
-          "description": "Enterprise multi-tenant authentication system with advanced security features",
-          "url": "https://phantomauth.com",
-          "sameAs": [
-            "https://twitter.com/phantomauth",
-            "https://github.com/phantomauth",
-            "https://linkedin.com/company/phantomauth"
-          ],
-          "contactPoint": {
-            "@type": "ContactPoint",
-            "telephone": "+1-800-PHANTOM",
-            "contactType": "customer service",
-            "email": "support@phantomauth.com"
-          }
-        })}
-      </script>
     </div>
   );
 }

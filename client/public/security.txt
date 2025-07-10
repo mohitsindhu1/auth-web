@@ -1,0 +1,64 @@
+Contact: security@phantomauth.com
+Expires: 2025-12-31T23:59:59Z
+Acknowledgments: https://phantomauth.com/security-acknowledgments
+Preferred-Languages: en
+Canonical: https://phantomauth.com/.well-known/security.txt
+Policy: https://phantomauth.com/security-policy
+Hiring: https://phantomauth.com/careers
+
+# PHANTOM AUTH Security Information
+
+This file contains security contact information for PHANTOM AUTH.
+
+## Reporting Security Issues
+
+If you discover a security vulnerability in PHANTOM AUTH, please report it to:
+- Email: security@phantomauth.com
+- PGP Key: https://phantomauth.com/pgp-key.txt
+
+## Security Features
+
+PHANTOM AUTH implements multiple layers of security:
+- Multi-tenant isolation with complete data separation
+- Industry-standard encryption (AES-256)
+- bcrypt password hashing with salt
+- JWT token-based authentication
+- API key authentication with rate limiting
+- Hardware ID (HWID) locking capabilities
+- IP address blacklisting and geolocation filtering
+- Real-time security monitoring and alerting
+- Comprehensive audit logging
+- OWASP compliance and security best practices
+- Regular security audits and penetration testing
+
+## Responsible Disclosure
+
+We follow a responsible disclosure policy:
+1. Report vulnerabilities privately to our security team
+2. Allow reasonable time for investigation and resolution
+3. Coordinate public disclosure timing
+4. Receive appropriate credit for valid findings
+
+## Bug Bounty Program
+
+We offer rewards for qualifying security vulnerability reports:
+- Critical vulnerabilities: $500 - $2,000
+- High vulnerabilities: $250 - $500  
+- Medium vulnerabilities: $100 - $250
+- Low vulnerabilities: $50 - $100
+
+## Security Hall of Fame
+
+We recognize security researchers who help improve our platform:
+https://phantomauth.com/security-hall-of-fame
+
+## Security Compliance
+
+PHANTOM AUTH meets or exceeds:
+- SOC 2 Type II compliance
+- GDPR data protection requirements
+- CCPA privacy regulations
+- HIPAA security standards (when applicable)
+- ISO 27001 information security management
+
+For questions about our security practices, contact: security@phantomauth.com

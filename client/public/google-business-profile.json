@@ -1,0 +1,185 @@
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "PHANTOM AUTH",
+  "description": "Enterprise multi-tenant authentication system with advanced security features for modern applications",
+  "url": "https://phantomauth.com",
+  "logo": "https://phantomauth.com/logo.png",
+  "image": "https://phantomauth.com/business-profile.jpg",
+  "telephone": "+1-800-PHANTOM",
+  "email": "info@phantomauth.com",
+  "foundingDate": "2024",
+  "numberOfEmployees": "10-50",
+  "slogan": "Secure Authentication for Modern Applications",
+  "industry": "Software Development",
+  "naics": "541511",
+  "duns": "123456789",
+  "address": {
+    "@type": "PostalAddress",
+    "addressCountry": "US",
+    "addressRegion": "United States"
+  },
+  "contactPoint": [
+    {
+      "@type": "ContactPoint",
+      "contactType": "customer service",
+      "telephone": "+1-800-PHANTOM",
+      "email": "support@phantomauth.com",
+      "url": "https://phantomauth.com/support",
+      "availableLanguage": ["en-US", "es-ES", "fr-FR"],
+      "hoursAvailable": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+          "opens": "09:00",
+          "closes": "17:00"
+        }
+      ]
+    },
+    {
+      "@type": "ContactPoint",
+      "contactType": "technical support",
+      "telephone": "+1-800-PHANTOM",
+      "email": "tech@phantomauth.com",
+      "url": "https://phantomauth.com/technical-support",
+      "availableLanguage": ["en-US"],
+      "hoursAvailable": "24/7"
+    },
+    {
+      "@type": "ContactPoint",
+      "contactType": "sales",
+      "telephone": "+1-800-PHANTOM",
+      "email": "sales@phantomauth.com",
+      "url": "https://phantomauth.com/contact-sales",
+      "availableLanguage": ["en-US"]
+    }
+  ],
+  "sameAs": [
+    "https://twitter.com/phantomauth",
+    "https://linkedin.com/company/phantomauth",
+    "https://github.com/phantomauth",
+    "https://facebook.com/phantomauth",
+    "https://instagram.com/phantomauth",
+    "https://youtube.com/phantomauth"
+  ],
+  "hasOfferCatalog": {
+    "@type": "OfferCatalog",
+    "name": "PHANTOM AUTH Services",
+    "itemListElement": [
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "SoftwareApplication",
+          "name": "Multi-Tenant Authentication System",
+          "description": "Complete authentication solution with tenant isolation"
+        },
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "SoftwareApplication",
+          "name": "Enterprise Security Suite",
+          "description": "Advanced security features for enterprise applications"
+        },
+        "price": "99",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      }
+    ]
+  },
+  "makesOffer": [
+    {
+      "@type": "Offer",
+      "name": "Free Plan",
+      "description": "Perfect for startups and small projects with essential authentication features",
+      "price": "0",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock",
+      "validFrom": "2024-01-01"
+    },
+    {
+      "@type": "Offer",
+      "name": "Professional Plan",
+      "description": "For growing businesses with advanced authentication needs",
+      "price": "29",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock",
+      "validFrom": "2024-01-01"
+    },
+    {
+      "@type": "Offer",
+      "name": "Enterprise Plan",
+      "description": "For large organizations requiring custom authentication solutions",
+      "price": "99",
+      "priceCurrency": "USD",
+      "availability": "https://schema.org/InStock",
+      "validFrom": "2024-01-01"
+    }
+  ],
+  "review": [
+    {
+      "@type": "Review",
+      "reviewRating": {
+        "@type": "Rating",
+        "ratingValue": "5",
+        "bestRating": "5"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "Sarah Johnson"
+      },
+      "reviewBody": "PHANTOM AUTH has transformed our enterprise authentication needs. The multi-tenant isolation is perfect for our SaaS platform.",
+      "datePublished": "2024-12-15"
+    },
+    {
+      "@type": "Review",
+      "reviewRating": {
+        "@type": "Rating",
+        "ratingValue": "5",
+        "bestRating": "5"
+      },
+      "author": {
+        "@type": "Person",
+        "name": "Michael Chen"
+      },
+      "reviewBody": "Excellent security features and comprehensive API documentation. Best authentication solution we've implemented.",
+      "datePublished": "2024-12-10"
+    }
+  ],
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.9",
+    "reviewCount": "500",
+    "bestRating": "5",
+    "worstRating": "1"
+  },
+  "awards": [
+    "Best Authentication Solution 2024",
+    "Enterprise Security Excellence Award",
+    "Developer Choice Award 2024",
+    "SaaS Innovation Award 2024"
+  ],
+  "knowsAbout": [
+    "Multi-tenant authentication",
+    "Enterprise security",
+    "API authentication",
+    "Google OAuth integration",
+    "SaaS security solutions",
+    "Identity management",
+    "Access control systems",
+    "Security frameworks",
+    "Authentication protocols",
+    "Enterprise software development"
+  ],
+  "areaServed": {
+    "@type": "GeoShape",
+    "name": "Worldwide"
+  },
+  "serviceArea": {
+    "@type": "GeoShape",
+    "name": "Global"
+  }
+}
