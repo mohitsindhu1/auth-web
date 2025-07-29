@@ -5,7 +5,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/contexts/ThemeContext";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { signOutUser } from "@/lib/firebase";
+
 
 export default function Header() {
   const { isAuthenticated, user } = useAuth();
@@ -27,13 +27,11 @@ export default function Header() {
   const handleLogout = async () => {
     try {
       console.log("Logout button clicked");
-      await signOutUser();
-      // Redirect to home page after logout
-      window.location.href = '/';
+      window.location.href = '/api/logout';
     } catch (error) {
       console.error("Logout error:", error);
       // Force redirect even if logout fails
-      window.location.href = '/';
+      window.location.href = '/api/logout';
     }
   };
 
