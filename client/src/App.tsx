@@ -16,32 +16,16 @@ import IntegrationExamples from "@/pages/integration-examples-new";
 import CodeEditor from "@/pages/code-editor";
 import UserManagement from "@/pages/user-management";
 import LicenseKeys from "@/pages/license-keys";
-import FirebaseLogin from "@/pages/firebase-login";
 import Landing from "@/pages/landing";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <Switch>
-      {!isAuthenticated ? (
-        <>
-          <Route path="/" component={Landing} />
-          <Route path="/firebase-login" component={FirebaseLogin} />
-          <Route path="/user-management" component={UserManagement} />
-        </>
+      {isLoading || !isAuthenticated ? (
+        <Route path="/" component={Landing} />
       ) : (
         <>
           <Route path="/" component={Home} />
