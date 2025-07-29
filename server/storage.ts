@@ -135,24 +135,45 @@ export class DatabaseStorage implements IStorage {
       insertData.isActive = true;
     }
 
-    const [user] = await db
-      .insert(users)
-      .values(insertData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          email: insertData.email,
-          firstName: insertData.firstName,
-          lastName: insertData.lastName,
-          profileImageUrl: insertData.profileImageUrl,
-          role: insertData.role,
-          permissions: insertData.permissions,
-          isActive: insertData.isActive,
-          updatedAt: new Date(),
-        },
-      })
-      .returning();
-    return user;
+    try {
+      // First try to find existing user by email or id
+      let existingUser;
+      if (insertData.email) {
+        [existingUser] = await db.select().from(users).where(eq(users.email, insertData.email));
+      }
+      if (!existingUser && insertData.id) {
+        [existingUser] = await db.select().from(users).where(eq(users.id, insertData.id));
+      }
+
+      let user;
+      if (existingUser) {
+        // Update existing user
+        [user] = await db
+          .update(users)
+          .set({
+            email: insertData.email,
+            firstName: insertData.firstName,
+            lastName: insertData.lastName,
+            profileImageUrl: insertData.profileImageUrl,
+            role: insertData.role,
+            permissions: insertData.permissions,
+            isActive: insertData.isActive,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, existingUser.id))
+          .returning();
+      } else {
+        // Create new user
+        [user] = await db
+          .insert(users)
+          .values(insertData)
+          .returning();
+      }
+      return user;
+    } catch (error) {
+      console.error("Error in upsertUser:", error);
+      throw error;
+    }
   }
 
   async getAllUsers(): Promise<User[]> {

@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./googleAuth";
 import { requirePermission, requireRole, PERMISSIONS, ROLES, getUserPermissions } from "./permissions";
 import { webhookService } from "./webhookService";
 import { 
@@ -86,17 +86,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Auth check - req.user:', req.user);
       console.log('Auth check - session:', req.session);
       
-      const userId = req.user.claims.sub;
-      console.log('Fetching user for ID:', userId);
-      
-      const user = await storage.getUser(userId);
-      console.log('Found user:', user);
+      const user = req.user;
+      console.log('Authenticated user:', user);
       
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
       
-      const permissions = await getUserPermissions(userId);
+      const permissions = await getUserPermissions(user.id);
       console.log('User permissions:', permissions);
       
       res.json({ ...user, userPermissions: permissions });
@@ -106,65 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Firebase authentication route
-  app.post('/api/auth/firebase-login', async (req: any, res) => {
-    try {
-      const { firebase_uid, email, display_name } = req.body;
-
-      if (!firebase_uid || !email) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Firebase UID and email are required" 
-        });
-      }
-
-      console.log('Firebase login attempt:', { firebase_uid, email, display_name });
-
-      // Create or update user in our system
-      const userData = {
-        id: firebase_uid,
-        email: email,
-        firstName: display_name?.split(' ')[0] || '',
-        lastName: display_name?.split(' ').slice(1).join(' ') || '',
-        profileImageUrl: null,
-      };
-
-      const user = await storage.upsertUser(userData);
-      console.log('User upserted:', user);
-
-      // Create session
-      (req.session as any).user = {
-        claims: {
-          sub: firebase_uid,
-          email: email,
-        }
-      };
-
-      // Save session explicitly
-      await new Promise((resolve, reject) => {
-        req.session.save((err: any) => {
-          if (err) reject(err);
-          else resolve(true);
-        });
-      });
-
-      console.log('Session created and saved successfully');
-
-      res.json({
-        success: true,
-        message: "Login successful! Redirecting to dashboard...",
-        account_id: firebase_uid,
-        user: user
-      });
-
-    } catch (error) {
-      console.error("Firebase login error:", error);
-      res.status(500).json({ 
-        success: false, 
-        message: "Authentication failed: " + (error instanceof Error ? error.message : 'Unknown error')
-      });
-    }
-  });
+  // Legacy endpoint - removed Firebase dependency
 
   // Logout function to handle both GET and POST requests
   const handleLogout = async (req: any, res: any) => {
@@ -207,10 +146,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Clear-Site-Data': '"cache", "cookies", "storage", "executionContexts"'
       });
       
-      // For GET requests, redirect to Firebase login page with logout flag
+      // For GET requests, redirect to home page
       if (req.method === 'GET') {
-        console.log("GET logout - Redirecting to Firebase login");
-        return res.redirect('/firebase-login?logged_out=true');
+        console.log("GET logout - Redirecting to home");
+        return res.redirect('/');
       }
       
       // For POST requests, return JSON
@@ -235,7 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard stats with real-time information
   app.get('/api/dashboard/stats', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const applications = await storage.getAllApplications(userId);
       
       let totalUsers = 0;
@@ -269,7 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Application routes (authenticated)
   app.get('/api/applications', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const applications = await storage.getAllApplications(userId);
       res.json(applications);
     } catch (error) {
@@ -280,7 +219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/applications', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const validatedData = insertApplicationSchema.parse(req.body);
       const application = await storage.createApplication(userId, validatedData);
       res.status(201).json(application);
@@ -303,7 +242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (application.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -326,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (application.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -359,7 +298,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (application.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -394,7 +333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       console.log("Checking ownership - User:", userId, "App owner:", application.userId);
       if (application.userId !== userId) {
         console.log("Access denied - user does not own application");
@@ -431,7 +370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (application.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -484,7 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (application.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -509,7 +448,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Application not found" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (application.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -532,7 +471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Application not found" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (application.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -559,7 +498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Application not found" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (application.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -591,7 +530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Application not found" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (application.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -632,7 +571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Application not found" });
       }
 
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (application.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -667,7 +606,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (application.userId !== userId) {
         console.log(`Access denied for user ${userId} to application ${applicationId}`);
         return res.status(403).json({ message: "Access denied" });
@@ -692,7 +631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       if (application.userId !== userId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -768,7 +707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const ownerId = req.user.claims.sub;
+      const ownerId = req.user.id;
       if (application.userId !== ownerId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -809,7 +748,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const ownerId = req.user.claims.sub;
+      const ownerId = req.user.id;
       if (application.userId !== ownerId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -843,7 +782,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const ownerId = req.user.claims.sub;
+      const ownerId = req.user.id;
       if (application.userId !== ownerId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -877,7 +816,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const ownerId = req.user.claims.sub;
+      const ownerId = req.user.id;
       if (application.userId !== ownerId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -911,7 +850,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if user owns this application
-      const ownerId = req.user.claims.sub;
+      const ownerId = req.user.id;
       if (application.userId !== ownerId) {
         return res.status(403).json({ message: "Access denied" });
       }
@@ -1573,7 +1512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Webhook routes
   app.get('/api/webhooks', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const webhooks = await storage.getUserWebhooks(userId);
       res.json(webhooks);
     } catch (error) {
@@ -1584,7 +1523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/webhooks', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const validatedData = insertWebhookSchema.parse(req.body);
       
       // Validate webhook URL format
@@ -1717,7 +1656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/webhooks/:id', isAuthenticated, async (req: any, res) => {
     try {
       const webhookId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const validatedData = insertWebhookSchema.partial().parse(req.body);
       
       // Check ownership
@@ -1746,7 +1685,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/webhooks/:id', isAuthenticated, async (req: any, res) => {
     try {
       const webhookId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Check ownership
       const webhooks = await storage.getUserWebhooks(userId);
@@ -1771,7 +1710,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Blacklist routes
   app.get('/api/blacklist', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const applications = await storage.getAllApplications(userId);
       
       // Get blacklist entries for all user's applications plus global entries
@@ -1796,7 +1735,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Blacklist POST - req.session:', req.session);
       console.log('Blacklist POST - req.body:', req.body);
       
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const validatedData = insertBlacklistSchema.parse(req.body);
       
       // If applicationId is provided, verify user owns that application
@@ -1821,7 +1760,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/blacklist/:id', isAuthenticated, async (req: any, res) => {
     try {
       const entryId = parseInt(req.params.id);
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       
       // Get the blacklist entry and verify ownership
       const blacklistEntries = await storage.getBlacklistEntries();
@@ -1854,7 +1793,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Activity logs routes
   app.get('/api/activity-logs', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const applicationId = req.query.applicationId;
       
       if (applicationId) {
@@ -1890,7 +1829,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get activity logs for specific user
   app.get('/api/activity-logs/user/:userId', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const appUserId = parseInt(req.params.userId);
       
       // Get the app user and verify ownership
@@ -1915,7 +1854,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test webhook endpoint
   app.post('/api/test-webhook', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const applications = await storage.getAllApplications(userId);
       
       if (applications.length === 0) {
@@ -2004,7 +1943,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Enhanced webhook diagnostics endpoint for Vietnam server optimization
   app.post('/api/webhook-diagnostics', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { webhook_url, test_type = 'basic' } = req.body;
       
       if (!webhook_url) {
@@ -2374,8 +2313,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { role, permissions, isActive } = req.body;
       
       // Only owner can modify other users
-      const currentUser = await storage.getUser(req.user.claims.sub);
-      if (currentUser?.role !== 'owner' && userId !== req.user.claims.sub) {
+      const currentUser = await storage.getUser(req.user.id);
+      if (currentUser?.role !== 'owner' && userId !== req.user.id) {
         return res.status(403).json({ message: "Only the owner can modify other users" });
       }
 
@@ -2398,7 +2337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { userId } = req.params;
       
       // Prevent self-deletion
-      if (userId === req.user.claims.sub) {
+      if (userId === req.user.id) {
         return res.status(400).json({ message: "Cannot delete your own account" });
       }
 
