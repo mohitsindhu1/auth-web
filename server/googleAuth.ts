@@ -38,7 +38,7 @@ export async function setupAuth(app: Express) {
 
   // Google OAuth Strategy
   const callbackURL = process.env.NODE_ENV === 'production' 
-    ? `${process.env.DEPLOYED_URL || 'https://your-app.replit.app'}/api/auth/google/callback`
+    ? `${process.env.DEPLOYED_URL || 'https://phantoms.authorisation.kesug.com'}/api/auth/google/callback`
     : "/api/auth/google/callback";
     
   console.log(`Setting up Google OAuth with callback URL: ${callbackURL}`);
